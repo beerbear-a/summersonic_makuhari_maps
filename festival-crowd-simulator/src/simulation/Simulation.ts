@@ -1,5 +1,6 @@
 /**
  * シミュレーション本体。
+ * - タイルマップとフローフィールド（施設・経由地ごと）の構築
  * - シミュレーション時計（分）の進行
  * - 全エージェントの更新
  * - 混雑グリッドの再計算
@@ -10,13 +11,24 @@
 import { Agent } from './Agent';
 import type { AgentContext } from './Agent';
 import { CrowdGrid } from './CrowdGrid';
+import { FlowField } from './FlowField';
 import { Timetable, formatTime } from './Timetable';
-import { facilityById, getFacility, WORLD_WIDTH, WORLD_HEIGHT } from '../data/venues';
+import { TileMap } from '../map/TileMap';
+import {
+  facilities,
+  facilityById,
+  getFacility,
+  waypoints,
+  spawnPoints,
+  WORLD_WIDTH,
+  WORLD_HEIGHT,
+} from '../data/venues';
+import type { Facility, FacilityType } from '../data/venues';
 import { acts, DAY_START, DAY_END } from '../data/timetable';
 import type { Act } from '../data/timetable';
 
 /** 1x 再生時に実時間1秒で進むシミュレーション分 */
-const BASE_MINUTES_PER_SECOND = 2;
+const BASE_MINUTES_PER_SECOND = 2.5;
 
 export interface LogEntry {
   time: number;
@@ -30,9 +42,12 @@ export interface Metrics {
 }
 
 export class Simulation {
-  readonly grid = new CrowdGrid(WORLD_WIDTH, WORLD_HEIGHT, 40);
+  readonly map = new TileMap();
+  readonly grid = new CrowdGrid(WORLD_WIDTH, WORLD_HEIGHT, 24);
   readonly timetable = new Timetable(acts);
   readonly agents: Agent[] = [];
+  /** POI id（施設 / 経由地）→ フローフィールド */
+  readonly fields = new Map<string, FlowField>();
 
   /** 現在時刻（分） */
   time = DAY_START;
@@ -50,11 +65,42 @@ export class Simulation {
   private eventCooldowns = new Map<string, number>();
   private closedLogged = false;
 
-  constructor(agentCount = 700) {
+  constructor(agentCount = 800) {
+    // ---- フローフィールドの事前計算 ----
+    for (const f of facilities) {
+      this.fields.set(
+        f.id,
+        new FlowField(this.map, f.audienceX ?? f.x, f.audienceY ?? f.y),
+      );
+    }
+    for (const wp of waypoints) {
+      this.fields.set(wp.id, new FlowField(this.map, wp.x, wp.y));
+    }
+    // 接続チェック（マップ改変時のデバッグ用）
+    for (const [id, field] of this.fields) {
+      if (!field.reachableFrom(spawnPoints[0].x, spawnPoints[0].y)) {
+        console.error(`FlowField unreachable from station spawn: ${id}`);
+      }
+    }
+
+    // ---- 観客の生成（駅とサブエントランスから、開場後75分かけて入場） ----
     for (let i = 0; i < agentCount; i++) {
-      // 開場から30分かけてパラパラと入場してくる
-      const spawnTime = DAY_START + Math.random() * 30;
-      this.agents.push(new Agent(i, spawnTime, acts));
+      const roll = Math.random();
+      let acc = 0;
+      let sp = spawnPoints[0];
+      for (const p of spawnPoints) {
+        acc += p.weight;
+        if (roll < acc) {
+          sp = p;
+          break;
+        }
+      }
+      const pos = this.map.findNearestWalkable(
+        sp.x + (Math.random() - 0.5) * 48,
+        sp.y + (Math.random() - 0.5) * 24,
+      );
+      const spawnTime = DAY_START + Math.random() * 75;
+      this.agents.push(new Agent(i, spawnTime, pos.x, pos.y, acts));
     }
     this.pushLog(`開場しました（観客 ${agentCount} 人が来場予定）`);
   }
@@ -74,6 +120,21 @@ export class Simulation {
 
   get currentActs(): Act[] {
     return this.timetable.actsAt(this.time);
+  }
+
+  /** 歩行距離が最短の指定タイプ施設を返す */
+  nearestOfType(type: FacilityType, x: number, y: number): Facility | undefined {
+    let best: Facility | undefined;
+    let bestDist = Infinity;
+    for (const f of facilities) {
+      if (f.type !== type) continue;
+      const d = this.fields.get(f.id)?.distanceAt(x, y) ?? Infinity;
+      if (d < bestDist) {
+        bestDist = d;
+        best = f;
+      }
+    }
+    return best;
   }
 
   /** メインループから毎フレーム呼ぶ。dtRealSeconds は実時間の経過秒 */
@@ -97,8 +158,12 @@ export class Simulation {
     const ctx: AgentContext = {
       time: this.time,
       grid: this.grid,
+      map: this.map,
+      fields: this.fields,
       facilities: facilityById,
+      waypoints,
       timetable: this.timetable,
+      nearestOfType: (type, x, y) => this.nearestOfType(type, x, y),
     };
     for (const a of this.agents) a.update(dtMin, ctx);
 
@@ -112,11 +177,7 @@ export class Simulation {
     this.checkActTransitions();
 
     // 全員退場したら終了
-    if (
-      this.time >= DAY_END &&
-      this.insideCount === 0 &&
-      !this.closedLogged
-    ) {
+    if (this.time >= DAY_END && this.insideCount === 0 && !this.closedLogged) {
       this.closedLogged = true;
       this.pushLog('全ての観客が退場しました。本日の営業は終了です 🎉');
       this.running = false;
@@ -131,11 +192,11 @@ export class Simulation {
     let crowdedCells = 0;
     let dangerCells = 0;
     for (const c of this.grid.counts) {
-      if (c >= 30) dangerCells++;
-      else if (c >= 15) crowdedCells++;
+      if (c >= 13) dangerCells++;
+      else if (c >= 7) crowdedCells++;
     }
-    const congestion = Math.min(100, crowdedCells * 3 + dangerCells * 10);
-    const safety = Math.max(0, 100 - (crowdedCells * 2 + dangerCells * 8));
+    const congestion = Math.min(100, crowdedCells * 1.2 + dangerCells * 5);
+    const safety = Math.max(0, 100 - (crowdedCells * 0.8 + dangerCells * 3.5));
 
     let satTotal = 0;
     let satCount = 0;
@@ -189,7 +250,7 @@ export class Simulation {
       }
     }
     if (this.prevTime < DAY_END && this.time >= DAY_END) {
-      this.pushLog('閉場時刻です。観客が EXIT へ向かっています');
+      this.pushLog('閉場時刻です。観客が海浜幕張駅へ向かっています');
     }
   }
 
@@ -198,8 +259,12 @@ export class Simulation {
     // ステージへの観客集中
     for (const act of this.currentActs) {
       const stage = getFacility(act.stageId);
-      const around = this.grid.countAround(stage.x, stage.y + 60, 2);
-      if (around >= 120) {
+      const around = this.grid.countAround(
+        stage.audienceX ?? stage.x,
+        stage.audienceY ?? stage.y,
+        2,
+      );
+      if (around >= 60) {
         this.fireEvent(
           `concentrate_${stage.id}`,
           12,
@@ -208,42 +273,42 @@ export class Simulation {
       }
     }
 
-    // トイレの待機列
-    const toilet = getFacility('toilet_area');
-    let toiletUsers = 0;
-    for (const a of this.agents) {
-      if (!a.active || a.left) continue;
-      if (
-        a.state === 'toilet' ||
-        (a.targetFacilityId === 'toilet_area' &&
-          Math.hypot(a.x - toilet.x, a.y - toilet.y) < 120)
-      ) {
-        toiletUsers++;
+    // トイレの待機列（2箇所それぞれ）
+    for (const f of facilities) {
+      if (f.type !== 'toilet') continue;
+      let users = 0;
+      const field = this.fields.get(f.id);
+      for (const a of this.agents) {
+        if (!a.active || a.left) continue;
+        if (
+          (a.state === 'toilet' || a.targetFacilityId === f.id) &&
+          (field?.distanceAt(a.x, a.y) ?? Infinity) < 90
+        ) {
+          users++;
+        }
       }
-    }
-    if (toiletUsers > toilet.capacity * 0.7) {
-      this.fireEvent(
-        'toilet_queue',
-        12,
-        'TOILET AREA に待機列が発生しています',
-      );
+      if (users > f.capacity * 0.7) {
+        this.fireEvent(`queue_${f.id}`, 12, `${f.name} に待機列が発生しています`);
+      }
     }
 
     // 飲食エリアの混雑と満足度低下
     const food = getFacility('food_area');
     const foodCrowd = this.grid.countAround(food.x, food.y, 2);
-    if (foodCrowd > food.capacity) {
-      this.fireEvent(
-        'food_crowd',
-        12,
-        'FOOD AREA が混雑し満足度が低下しています',
-      );
+    if (foodCrowd > 60) {
+      this.fireEvent('food_crowd', 12, 'FOOD AREA が混雑し満足度が低下しています');
+    }
+
+    // 駅前への殺到（閉場前後）
+    const exit = getFacility('exit_station');
+    if (this.grid.countAround(exit.x, exit.y, 3) > 90) {
+      this.fireEvent('station_rush', 10, '海浜幕張駅周辺が大変混雑しています');
     }
 
     // 危険水準セルの発生
     let dangerCells = 0;
-    for (const c of this.grid.counts) if (c >= 30) dangerCells++;
-    if (dangerCells > 0) {
+    for (const c of this.grid.counts) if (c >= 13) dangerCells++;
+    if (dangerCells > 2) {
       this.fireEvent(
         'danger',
         8,

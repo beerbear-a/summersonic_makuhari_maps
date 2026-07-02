@@ -1,25 +1,31 @@
 /**
  * エントリーポイント。
- * PixiJS アプリの初期化、シミュレーションとレンダラーの接続、UI の更新を行う。
+ * PixiJS アプリの初期化（ドット絵設定）、シミュレーションと
+ * レンダラーの接続、UI の更新を行う。
  */
 
-import { Application } from 'pixi.js';
+import { Application, TextureSource } from 'pixi.js';
 import { Simulation, formatTime } from './simulation/Simulation';
 import { Renderer } from './rendering/Renderer';
 import { HeatmapRenderer } from './rendering/HeatmapRenderer';
 import { WORLD_WIDTH, WORLD_HEIGHT } from './data/venues';
 import './style.css';
 
-const AGENT_COUNT = 700;
+const AGENT_COUNT = 800;
 const MAX_LOG_ITEMS = 60;
 
 async function boot(): Promise<void> {
+  // ドット絵: 拡大縮小してもにじまないように nearest 補間にする
+  TextureSource.defaultOptions.scaleMode = 'nearest';
+
   const app = new Application();
   await app.init({
     width: WORLD_WIDTH,
     height: WORLD_HEIGHT,
-    background: 0x101216,
-    antialias: true,
+    background: 0x0d1b2e,
+    antialias: false,
+    roundPixels: true,
+    resolution: 1,
   });
   document.getElementById('stage-wrap')!.appendChild(app.canvas);
 

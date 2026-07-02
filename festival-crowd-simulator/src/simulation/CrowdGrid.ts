@@ -1,13 +1,15 @@
 /**
  * 混雑グリッド。
- * マップ全体を cellSize(40px) のグリッドに分割し、各セル内の観客数をカウントする。
+ * マップ全体を cellSize(24px = 3タイル) のグリッドに分割し、
+ * 各セル内の観客数をカウントする。
  * ヒートマップ描画と、混雑による移動速度低下の両方で使う。
  *
- * 混雑レベルの基準:
- *   0-4人   : 空いている  (level 0)
- *   5-14人  : やや混雑    (level 1)
- *   15-29人 : 混雑        (level 2)
- *   30人以上: 危険水準    (level 3)
+ * 混雑レベルの基準（24pxセル。仕様書の 40pxセル基準
+ * 「0-4 / 5-14 / 15-29 / 30+」を面積比で換算したもの）:
+ *   0-2人  : 空いている  (level 0)
+ *   3-6人  : やや混雑    (level 1)
+ *   7-12人 : 混雑        (level 2)
+ *   13人以上: 危険水準    (level 3)
  */
 
 export class CrowdGrid {
@@ -18,7 +20,7 @@ export class CrowdGrid {
   constructor(
     readonly width: number,
     readonly height: number,
-    readonly cellSize = 40,
+    readonly cellSize = 24,
   ) {
     this.cols = Math.ceil(width / cellSize);
     this.rows = Math.ceil(height / cellSize);
@@ -51,19 +53,24 @@ export class CrowdGrid {
   }
 
   static levelOf(count: number): 0 | 1 | 2 | 3 {
-    if (count >= 30) return 3;
-    if (count >= 15) return 2;
-    if (count >= 5) return 1;
+    if (count >= 13) return 3;
+    if (count >= 7) return 2;
+    if (count >= 3) return 1;
     return 0;
   }
 
   /** 混雑による移動速度の倍率（1.0 = 通常速度） */
   speedFactorAt(x: number, y: number): number {
-    const c = this.countAt(x, y);
-    if (c >= 30) return 0.25; // 危険水準: ほぼ動けない
-    if (c >= 15) return 0.45; // 混雑
-    if (c >= 5) return 0.75; // やや混雑
-    return 1.0;
+    switch (CrowdGrid.levelOf(this.countAt(x, y))) {
+      case 3:
+        return 0.25; // 危険水準: ほぼ動けない
+      case 2:
+        return 0.45; // 混雑
+      case 1:
+        return 0.75; // やや混雑
+      default:
+        return 1.0;
+    }
   }
 
   /** 座標 (x, y) を中心に radiusCells セル分の合計人数（イベント検知用） */

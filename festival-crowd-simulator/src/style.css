@@ -1,7 +1,7 @@
 :root {
-  --bg: #0b0d11;
-  --panel-bg: #14171d;
-  --panel-border: #262b36;
+  --bg: #07080d;
+  --panel-bg: #10131a;
+  --panel-border: #2c3444;
   --text: #e8eaf0;
   --text-dim: #8a92a6;
   --accent: #4fc3f7;
@@ -17,51 +17,65 @@
 body {
   margin: 0;
   background: var(--bg);
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent 0 2px,
+    rgba(255, 255, 255, 0.012) 2px 4px
+  );
   color: var(--text);
-  font-family: 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+  font-family: 'Courier New', 'Osaka-Mono', 'MS Gothic', monospace;
 }
 
 #app {
   display: flex;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+  padding: 10px;
   align-items: flex-start;
+  justify-content: center;
 }
+
+/* ---------------- ドット絵キャンバス ---------------- */
 
 #stage-wrap {
   flex: 0 0 auto;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border: 3px solid var(--panel-border);
+  outline: 3px solid #000;
   overflow: hidden;
   line-height: 0;
+  background: #000;
 }
 
 #stage-wrap canvas {
   display: block;
-  max-width: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  height: calc(100vh - 26px);
+  max-height: 1120px;
+  width: auto;
 }
 
 /* ---------------- サイドパネル ---------------- */
 
 #panel {
-  flex: 1 1 300px;
-  min-width: 280px;
-  max-width: 360px;
+  flex: 0 1 340px;
+  min-width: 290px;
   background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 16px;
+  border: 3px solid var(--panel-border);
+  outline: 3px solid #000;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  height: 800px;
+  gap: 10px;
+  height: calc(100vh - 26px);
+  max-height: 1120px;
 }
 
 #panel h1 {
   margin: 0;
   font-size: 20px;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   color: var(--accent);
+  text-shadow: 2px 2px 0 #000;
 }
 
 .subtitle {
@@ -71,14 +85,16 @@ body {
 }
 
 #clock {
-  font-size: 40px;
+  font-size: 38px;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   text-align: center;
-  background: #0d0f14;
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  padding: 6px 0;
+  background: #05060a;
+  border: 2px solid var(--panel-border);
+  padding: 4px 0;
+  color: #9fe870;
+  text-shadow: 0 0 6px rgba(159, 232, 112, 0.55);
+  letter-spacing: 4px;
 }
 
 /* ---------------- コントロール ---------------- */
@@ -92,16 +108,22 @@ body {
 button {
   font-family: inherit;
   color: var(--text);
-  background: #1d2230;
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  padding: 8px 12px;
+  background: #1b2130;
+  border: 2px solid var(--panel-border);
+  border-bottom-width: 4px;
+  padding: 7px 10px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: bold;
 }
 
 button:hover {
   background: #262d3f;
+}
+
+button:active {
+  border-bottom-width: 2px;
+  transform: translateY(2px);
 }
 
 .btn-play {
@@ -109,7 +131,7 @@ button:hover {
 }
 
 .btn-play.paused {
-  background: #2e4a2f;
+  background: #23431f;
   border-color: #3f6b41;
 }
 
@@ -119,15 +141,14 @@ button:hover {
 }
 
 .btn-speed {
-  padding: 8px 10px;
+  padding: 7px 9px;
   font-variant-numeric: tabular-nums;
 }
 
 .btn-speed.active {
   background: var(--accent);
-  border-color: var(--accent);
+  border-color: #8fdcff;
   color: #08222e;
-  font-weight: bold;
 }
 
 /* ---------------- 統計 ---------------- */
@@ -136,7 +157,7 @@ button:hover {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .stat-row {
@@ -146,7 +167,7 @@ button:hover {
 }
 
 .stat-row dt {
-  flex: 0 0 82px;
+  flex: 0 0 84px;
   font-size: 12px;
   color: var(--text-dim);
 }
@@ -163,19 +184,20 @@ button:hover {
 
 .meter {
   flex: 1;
-  height: 10px;
-  background: #0d0f14;
-  border-radius: 5px;
+  height: 12px;
+  background: #05060a;
   overflow: hidden;
-  border: 1px solid var(--panel-border);
+  border: 2px solid var(--panel-border);
 }
 
 .meter-fill {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: 5px;
   transition: width 0.2s linear;
+  /* ドット絵風のセグメントメーター */
+  -webkit-mask-image: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
+  mask-image: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px);
 }
 
 .meter-fill.congestion {
@@ -201,7 +223,7 @@ button:hover {
 #log h2 {
   margin: 0 0 6px;
   font-size: 12px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   color: var(--text-dim);
 }
 
@@ -212,16 +234,16 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 #now-playing-list li {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #0d0f14;
-  border-radius: 6px;
-  padding: 6px 8px;
+  background: #05060a;
+  border: 1px solid var(--panel-border);
+  padding: 5px 8px;
 }
 
 #now-playing-list li.idle {
@@ -231,14 +253,13 @@ button:hover {
 .live-dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: #ff1744;
-  animation: blink 1s infinite;
+  animation: blink 1s steps(2, start) infinite;
 }
 
 .np-stage {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-dim);
 }
 
@@ -248,7 +269,7 @@ button:hover {
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.2;
   }
 }
 
@@ -267,17 +288,16 @@ button:hover {
   list-style: none;
   overflow-y: auto;
   flex: 1;
-  font-size: 12px;
+  font-size: 11px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 #log-list li {
-  background: #0d0f14;
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  padding: 5px 8px;
+  background: #05060a;
+  border-left: 4px solid var(--accent);
+  padding: 4px 7px;
   line-height: 1.5;
 }
 
@@ -285,4 +305,13 @@ button:hover {
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
   margin-right: 4px;
+}
+
+#log-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+#log-list::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border: 2px solid var(--panel-bg);
 }

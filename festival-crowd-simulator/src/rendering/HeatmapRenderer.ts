@@ -1,7 +1,7 @@
 /**
  * 混雑ヒートマップの描画。
  * CrowdGrid の各セルを、人数に応じた色（黄→橙→赤）の半透明矩形で塗る。
- * 危険水準（30人以上）のセルはゆっくり点滅させて目立たせる。
+ * 危険水準（13人以上/24pxセル）のセルはゆっくり点滅させて目立たせる。
  */
 
 import { Container, Graphics } from 'pixi.js';
@@ -26,22 +26,22 @@ export class HeatmapRenderer {
     for (let row = 0; row < grid.rows; row++) {
       for (let col = 0; col < grid.cols; col++) {
         const count = grid.counts[row * grid.cols + col];
-        if (count < 5) continue; // 空いているセルは塗らない
+        if (count < 3) continue; // 空いているセルは塗らない
 
         let color: number;
         let alpha: number;
-        if (count >= 30) {
+        if (count >= 13) {
           // 危険水準: 赤 + 点滅
           color = 0xff1744;
           alpha = 0.42 + Math.sin(this.pulse) * 0.12;
-        } else if (count >= 15) {
+        } else if (count >= 7) {
           // 混雑: 橙〜赤へ補間
-          const t = (count - 15) / 15;
+          const t = (count - 7) / 6;
           color = lerpColor(0xff7043, 0xff1744, t);
           alpha = 0.26 + t * 0.14;
         } else {
           // やや混雑: 黄〜橙へ補間
-          const t = (count - 5) / 10;
+          const t = (count - 3) / 4;
           color = lerpColor(0xffc107, 0xff7043, t);
           alpha = 0.14 + t * 0.12;
         }

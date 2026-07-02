@@ -1,13 +1,16 @@
 /**
  * ドット絵タイルマップ。
- * SUMMER SONIC 東京会場マップを 8px タイル（84 x 140）で再現する。
+ * SUMMER SONIC 東京会場マップを 32px タイル（84 x 140 グリッド）で再現する。
  * - 各タイルは TileType を持ち、歩行可否と2色のディザ配色が決まる
  * - paint() で PixiJS Graphics にタイルを描き込む（起動時に1回だけ）
  * - 歩行可否はフローフィールド（経路探索）と移動判定の両方で使う
+ * - ステージ（ZOZOマリンスタジアムのスタンドや各ホールのステージ台など）や
+ *   FOOD AREA の屋台は、タイル種別に加えて stageRigs / FOOD_STALL_* を使った
+ *   paint() 側の追加描画（バックドロップ・PAタワー・庇）で作り込んでいる
  */
 
 import { Graphics } from 'pixi.js';
-import { WORLD_WIDTH, WORLD_HEIGHT } from '../data/venues';
+import { WORLD_WIDTH, WORLD_HEIGHT, WORLD_SCALE } from '../data/venues';
 import { decorations } from '../data/decorations';
 import type { Decoration } from '../data/decorations';
 
@@ -47,6 +50,7 @@ export const enum T {
   FLOOR_SPOTIFY,
   FLOOR_SONIC,
   FLOOR_MOUNTAIN,
+  FOOD_STALL, // 飲食屋台（障害物。見た目は paint() 側で個別に描く）
 }
 
 /** タイルごとの2色（(x+y)が偶数/奇数でディザ） */
@@ -77,6 +81,7 @@ const PALETTE: Record<T, [number, number]> = {
   [T.FLOOR_SPOTIFY]: [0x24473a, 0x204034],
   [T.FLOOR_SONIC]: [0x54402a, 0x4d3a26],
   [T.FLOOR_MOUNTAIN]: [0x31503a, 0x2c4934],
+  [T.FOOD_STALL]: [0x3a2818, 0x33220f],
 };
 
 const WALKABLE = new Set<T>([
@@ -121,12 +126,37 @@ const TERRAIN_COST: Partial<Record<T, number>> = {
   [T.ROAD]: 70, // 車道: 横断歩道以外はほぼ渡らない
 };
 
-/** スタジアムの中心とサイズ（px） */
-const STADIUM_CX = 392;
-const STADIUM_CY = 277;
+/**
+ * スタジアムの中心とリング半径（ワールドpx）。
+ * 論理レイアウト(672x1120)上の値に WORLD_SCALE を掛けて実座標にしている。
+ * ここを変え忘れるとスタジアムが描画されない（実際に起きた不具合）ので注意。
+ */
+const STADIUM_CX = 392 * WORLD_SCALE;
+const STADIUM_CY = 277 * WORLD_SCALE;
+const STADIUM_FIELD_R = 78 * WORLD_SCALE;
+const STADIUM_SEAT_R = 92 * WORLD_SCALE;
+const STADIUM_STAND_R = 110 * WORLD_SCALE;
+const STADIUM_OUTER_R = 124 * WORLD_SCALE;
+
+/** FOOD AREA の屋台配置（build() と paint() の両方から参照） */
+const FOOD_STALL_COLS = [28, 31, 34, 37, 40];
+const FOOD_STALL_ROWS = [75, 83];
+
+/** ステージ構造物（バックドロップ・PAタワー）の描画情報 */
+interface StageRig {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** 客席がある方向 */
+  facing: 'south' | 'east';
+  color: number;
+}
 
 export class TileMap {
   readonly tiles = new Uint8Array(COLS * ROWS);
+  /** 各ステージの構造物描画データ（build 中に集める） */
+  private readonly stageRigs: StageRig[] = [];
 
   constructor() {
     this.build();
@@ -205,6 +235,14 @@ export class TileMap {
     this.fill(41, 10, 35, 2, T.SAND); // 海沿いの砂の縁
     // BEACH STAGE（ステージ台 + 手前が客席の砂浜）
     this.fill(8, 12, 14, 3, T.STAGE_BEACH);
+    this.stageRigs.push({
+      x: 8 * TILE,
+      y: 12 * TILE,
+      w: 14 * TILE,
+      h: 3 * TILE,
+      facing: 'south',
+      color: 0xd4af37,
+    });
 
     // ---- ZOZOマリンスタジアム ----
     this.buildStadium();
@@ -264,17 +302,25 @@ export class TileMap {
         const px = col * TILE + TILE / 2;
         const py = row * TILE + TILE / 2;
         const r = Math.hypot(px - STADIUM_CX, py - STADIUM_CY);
-        if (r >= 124) continue;
+        if (r >= STADIUM_OUTER_R) continue;
         // 南側ゲート（フィールドへの入場口）
         const inGate = col >= 47 && col <= 51 && py > STADIUM_CY;
-        if (r < 78) this.set(col, row, T.FIELD);
-        else if (r < 92) this.set(col, row, inGate ? T.PLAZA : T.SEAT);
-        else if (r < 110) this.set(col, row, inGate ? T.PLAZA : T.STAND);
+        if (r < STADIUM_FIELD_R) this.set(col, row, T.FIELD);
+        else if (r < STADIUM_SEAT_R) this.set(col, row, inGate ? T.PLAZA : T.SEAT);
+        else if (r < STADIUM_STAND_R) this.set(col, row, inGate ? T.PLAZA : T.STAND);
         else this.set(col, row, T.PLAZA); // 外周の広場リング
       }
     }
     // MARINE STAGE のステージ台（フィールド北側）
     this.fill(44, 26, 10, 3, T.DECK);
+    this.stageRigs.push({
+      x: 44 * TILE,
+      y: 26 * TILE,
+      w: 10 * TILE,
+      h: 3 * TILE,
+      facing: 'south',
+      color: 0x35b8c9,
+    });
   }
 
   private buildMesse(): void {
@@ -293,18 +339,23 @@ export class TileMap {
       this.fill(wallCol, 66, 1, 11, T.MESSE_WALL);
     }
 
-    // 各ステージのステージ台
-    this.fill(10, 66, 6, 3, T.DECK); // PACIFIC（北端）
-    this.fill(19, 66, 6, 3, T.DECK); // Spotify（北端）
-    this.fill(44, 66, 6, 3, T.DECK); // SONIC（北端）
+    // 各ステージのステージ台（北端。バックドロップ・PAタワーは paint() で描く）
+    this.fill(10, 66, 6, 3, T.DECK); // PACIFIC
+    this.stageRigs.push({ x: 10 * TILE, y: 66 * TILE, w: 6 * TILE, h: 3 * TILE, facing: 'south', color: 0xe4739e });
+    this.fill(19, 66, 6, 3, T.DECK); // Spotify
+    this.stageRigs.push({ x: 19 * TILE, y: 66 * TILE, w: 6 * TILE, h: 3 * TILE, facing: 'south', color: 0x1db954 });
+    this.fill(44, 66, 6, 3, T.DECK); // SONIC
+    this.stageRigs.push({ x: 44 * TILE, y: 66 * TILE, w: 6 * TILE, h: 3 * TILE, facing: 'south', color: 0xe08a3c });
     // MOUNTAIN はホールを横に使う: ステージ台は左（西）端の縦置きで、
     // 観客は東側からステージ（西向き）を観る
     this.fill(52, 68, 2, 17, T.DECK);
+    this.stageRigs.push({ x: 52 * TILE, y: 68 * TILE, w: 2 * TILE, h: 17 * TILE, facing: 'east', color: 0x69c25e });
 
-    // FOOD AREA（Hall 5-6）: 屋台の列で歩行不可タイルを点在させる
+    // FOOD AREA（Hall 5-6）: 南北2列の屋台 + 中央に飲食スペース
     this.fill(27, 74, 16, 11, T.FOOD_FLOOR);
-    for (const stallRow of [77, 81]) {
-      for (let c = 29; c <= 41; c += 3) this.set(c, stallRow, T.BUILDING);
+    for (const col of FOOD_STALL_COLS) {
+      this.fill(col, FOOD_STALL_ROWS[0], 2, 1, T.FOOD_STALL);
+      this.fill(col, FOOD_STALL_ROWS[1], 2, 1, T.FOOD_STALL);
     }
 
     // TOILET（Hall 5-6 の北壁沿い）
@@ -369,6 +420,13 @@ export class TileMap {
           g.rect(x + 4, y + 4, 8, 8).fill(0x4d7fc0);
           g.rect(x + 20, y + 18, 8, 8).fill(0x4d7fc0);
         }
+        if (t === T.STAND) {
+          // スタンド外周に屋根のシルエットを入れて建物らしさを出す
+          const r = Math.hypot(x + TILE / 2 - STADIUM_CX, y + TILE / 2 - STADIUM_CY);
+          if (r > STADIUM_STAND_R - TILE) {
+            g.rect(x, y, TILE, 6).fill(0x272b33);
+          }
+        }
         if (t === T.CITY && (col * 7 + row * 13) % 11 === 0) {
           g.rect(x + 8, y + 8, 12, 12).fill(0x3a404a);
         }
@@ -378,6 +436,10 @@ export class TileMap {
         if (t === T.STATION && row % 2 === 1 && col % 3 === 0) {
           g.rect(x + 8, y + 8, 16, 12).fill(0x8d84b3);
         }
+        if (t === T.TOILET_FLOOR && col % 2 === 0) {
+          // 個室の仕切り線
+          g.rect(x, y + 6, 3, TILE - 12).fill(0x241f3d);
+        }
       }
     }
 
@@ -386,18 +448,13 @@ export class TileMap {
       g.rect(c * TILE, 58 * TILE - 4, 48, 8).fill(0x9ba1a9);
     }
 
-    // ---- ステージ台の前縁ライト（アクセントカラー） ----
-    const edges: Array<{ x: number; y: number; w: number; h: number; c: number }> = [
-      { x: 44 * TILE, y: 29 * TILE - 8, w: 10 * TILE, h: 8, c: 0x35b8c9 }, // MARINE
-      { x: 8 * TILE, y: 15 * TILE - 8, w: 14 * TILE, h: 8, c: 0xd4af37 }, // BEACH
-      { x: 10 * TILE, y: 69 * TILE - 8, w: 6 * TILE, h: 8, c: 0xe4739e }, // PACIFIC
-      { x: 19 * TILE, y: 69 * TILE - 8, w: 6 * TILE, h: 8, c: 0x1db954 }, // Spotify
-      { x: 44 * TILE, y: 69 * TILE - 8, w: 6 * TILE, h: 8, c: 0xe08a3c }, // SONIC
-      { x: 54 * TILE - 8, y: 68 * TILE, w: 8, h: 17 * TILE, c: 0x69c25e }, // MOUNTAIN（縦・東向きの前縁）
-    ];
-    for (const e of edges) {
-      g.rect(e.x, e.y, e.w, e.h).fill(e.c);
+    // ---- ステージ構造物（バックドロップ・PAタワー・前縁ライト） ----
+    for (const rig of this.stageRigs) {
+      this.paintStageRig(g, rig);
     }
+
+    // ---- FOOD AREA の屋台（庇の色をローテーションして描く） ----
+    this.paintFoodStalls(g);
 
     // ---- ゲートのアーチ（入口の目印） ----
     const gates: Array<[number, number]> = [
@@ -415,6 +472,72 @@ export class TileMap {
     // ---- 配置データ駆動の装飾（data/decorations.ts で追加できる） ----
     for (const d of decorations) {
       this.paintDecoration(g, d);
+    }
+  }
+
+  /**
+   * ステージ1つぶんの構造物を描く: 前縁ライト（客席側）・バックドロップ
+   * （大型スクリーン風の背面パネル）・両脇の PA タワー。
+   */
+  private paintStageRig(g: Graphics, rig: StageRig): void {
+    const { x, y, w, h, facing, color } = rig;
+    const dark = 0x14161c;
+    const screen = 0x1c2128;
+
+    if (facing === 'south') {
+      // 前縁ライト（客席に面した下端）
+      g.rect(x, y + h - 6, w, 6).fill(color);
+      // バックドロップ（ステージ背後の大型スクリーン/トラス）
+      const bw = w * 0.72;
+      const bx = x + (w - bw) / 2;
+      const bh = TILE * 2.1;
+      g.rect(bx, y - bh, bw, bh).fill(dark);
+      g.rect(bx, y - bh, bw, 6).fill(color);
+      g.rect(bx + 6, y - bh + 12, bw - 12, bh - 22).fill(screen);
+      // 左右の PA タワー
+      const tw = TILE * 0.5;
+      const th = h + TILE * 0.6;
+      g.rect(x - tw - 4, y - TILE * 0.6, tw, th).fill(0x1a1d23);
+      g.rect(x + w + 4, y - TILE * 0.6, tw, th).fill(0x1a1d23);
+      g.rect(x - tw - 4, y - TILE * 0.6, tw, 5).fill(color);
+      g.rect(x + w + 4, y - TILE * 0.6, tw, 5).fill(color);
+    } else {
+      // facing === 'east'（MOUNTAIN STAGE: 西端のステージ、客席は東側）
+      g.rect(x + w - 6, y, 6, h).fill(color);
+      const bh = h * 0.65;
+      const by = y + (h - bh) / 2;
+      const bw = TILE * 1.3;
+      g.rect(x - bw, by, bw, bh).fill(dark);
+      g.rect(x - bw, by, 6, bh).fill(color);
+      g.rect(x - bw + 10, by + 6, bw - 16, bh - 12).fill(screen);
+      const tw = TILE * 0.5;
+      const twid = w + TILE * 0.6;
+      g.rect(x - TILE * 0.6, y - tw - 4, twid, tw).fill(0x1a1d23);
+      g.rect(x - TILE * 0.6, y + h + 4, twid, tw).fill(0x1a1d23);
+      g.rect(x - TILE * 0.6, y - tw - 4, 5, tw).fill(color);
+      g.rect(x - TILE * 0.6, y + h + 4, 5, tw).fill(color);
+    }
+  }
+
+  /** FOOD AREA の屋台（庇 + カウンター）を色をローテーションして描く */
+  private paintFoodStalls(g: Graphics): void {
+    const awnings = [0xd94f3d, 0xe0a83c, 0x3f8a6a];
+    let i = 0;
+    for (const row of FOOD_STALL_ROWS) {
+      for (const col of FOOD_STALL_COLS) {
+        const x = col * TILE;
+        const y = row * TILE;
+        const w = 2 * TILE;
+        const awning = awnings[i % awnings.length];
+        i++;
+        // 庇（縞模様）
+        g.rect(x, y, w, 10).fill(awning);
+        g.rect(x, y, 10, 10).fill(lighten(awning));
+        g.rect(x + w - 10, y, 10, 10).fill(lighten(awning));
+        // 屋台本体とカウンター
+        g.rect(x, y + 10, w, TILE - 10).fill(0x2c1f13);
+        g.rect(x + 4, y + 18, w - 8, 8).fill(0x6a4426);
+      }
     }
   }
 

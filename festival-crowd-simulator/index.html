@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
+    <title>Festival Crowd Simulator - 幕張メッセ風フェス人流シミュレーター</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage-wrap"></div>
+      <aside id="panel">
+        <h1>FES CROWD SIM</h1>
+        <p class="subtitle">幕張メッセ風・架空フェス人流シミュレーター</p>
+
+        <div id="clock">--:--</div>
+
+        <div class="controls">
+          <button id="btn-play" class="btn-play">⏸ 一時停止</button>
+          <div class="speed-group">
+            <button class="btn-speed active" data-speed="1">1x</button>
+            <button class="btn-speed" data-speed="2">2x</button>
+            <button class="btn-speed" data-speed="4">4x</button>
+            <button class="btn-speed" data-speed="8">8x</button>
+          </div>
+        </div>
+
+        <dl id="stats">
+          <div class="stat-row">
+            <dt>総観客数</dt>
+            <dd id="stat-total">-</dd>
+          </div>
+          <div class="stat-row">
+            <dt>会場内</dt>
+            <dd id="stat-inside">-</dd>
+          </div>
+          <div class="stat-row">
+            <dt>全体混雑度</dt>
+            <dd>
+              <span class="meter"><span id="bar-congestion" class="meter-fill congestion"></span></span>
+              <span id="stat-congestion" class="meter-value">-</span>
+            </dd>
+          </div>
+          <div class="stat-row">
+            <dt>安全度</dt>
+            <dd>
+              <span class="meter"><span id="bar-safety" class="meter-fill safety"></span></span>
+              <span id="stat-safety" class="meter-value">-</span>
+            </dd>
+          </div>
+          <div class="stat-row">
+            <dt>満足度</dt>
+            <dd>
+              <span class="meter"><span id="bar-satisfaction" class="meter-fill satisfaction"></span></span>
+              <span id="stat-satisfaction" class="meter-value">-</span>
+            </dd>
+          </div>
+        </dl>
+
+        <section id="now-playing">
+          <h2>NOW PLAYING</h2>
+          <ul id="now-playing-list"></ul>
+        </section>
+
+        <section id="log">
+          <h2>イベントログ</h2>
+          <ul id="log-list"></ul>
+        </section>
+      </aside>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

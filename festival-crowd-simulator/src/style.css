@@ -1,0 +1,288 @@
+:root {
+  --bg: #0b0d11;
+  --panel-bg: #14171d;
+  --panel-border: #262b36;
+  --text: #e8eaf0;
+  --text-dim: #8a92a6;
+  --accent: #4fc3f7;
+  --congestion: #ff5252;
+  --safety: #66bb6a;
+  --satisfaction: #ffca28;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', sans-serif;
+}
+
+#app {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  align-items: flex-start;
+}
+
+#stage-wrap {
+  flex: 0 0 auto;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  line-height: 0;
+}
+
+#stage-wrap canvas {
+  display: block;
+  max-width: 100%;
+}
+
+/* ---------------- サイドパネル ---------------- */
+
+#panel {
+  flex: 1 1 300px;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 800px;
+}
+
+#panel h1 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--accent);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+#clock {
+  font-size: 40px;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  background: #0d0f14;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 6px 0;
+}
+
+/* ---------------- コントロール ---------------- */
+
+.controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+button {
+  font-family: inherit;
+  color: var(--text);
+  background: #1d2230;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+button:hover {
+  background: #262d3f;
+}
+
+.btn-play {
+  flex: 1;
+}
+
+.btn-play.paused {
+  background: #2e4a2f;
+  border-color: #3f6b41;
+}
+
+.speed-group {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-speed {
+  padding: 8px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-speed.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #08222e;
+  font-weight: bold;
+}
+
+/* ---------------- 統計 ---------------- */
+
+#stats {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-row dt {
+  flex: 0 0 82px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.stat-row dd {
+  margin: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  flex: 1;
+  height: 10px;
+  background: #0d0f14;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 5px;
+  transition: width 0.2s linear;
+}
+
+.meter-fill.congestion {
+  background: var(--congestion);
+}
+
+.meter-fill.safety {
+  background: var(--safety);
+}
+
+.meter-fill.satisfaction {
+  background: var(--satisfaction);
+}
+
+.meter-value {
+  flex: 0 0 28px;
+  text-align: right;
+}
+
+/* ---------------- NOW PLAYING ---------------- */
+
+#now-playing h2,
+#log h2 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+#now-playing-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+#now-playing-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #0d0f14;
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+#now-playing-list li.idle {
+  color: var(--text-dim);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff1744;
+  animation: blink 1s infinite;
+}
+
+.np-stage {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ---------------- イベントログ ---------------- */
+
+#log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#log-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#log-list li {
+  background: #0d0f14;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  padding: 5px 8px;
+  line-height: 1.5;
+}
+
+.log-time {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}

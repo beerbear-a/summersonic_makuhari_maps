@@ -1,0 +1,397 @@
+{
+  "type": "FeatureCollection",
+  "name": "summer_sonic_2026_makuhari_approx_layers",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0314,
+          35.64602
+        ]
+      },
+      "properties": {
+        "id": "entrance_main",
+        "name": "ENTRANCE / ZOZO MARINE",
+        "type": "gate",
+        "x": 795,
+        "y": 813,
+        "crowd_capacity_hint": 9000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0271,
+          35.64555
+        ]
+      },
+      "properties": {
+        "id": "sub_entrance",
+        "name": "SUB ENTRANCE",
+        "type": "gate",
+        "x": 225,
+        "y": 555,
+        "crowd_capacity_hint": 3500
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0309222,
+          35.6452389
+        ]
+      },
+      "properties": {
+        "id": "marine_stage",
+        "name": "MARINE STAGE",
+        "type": "stage",
+        "x": 804,
+        "y": 520,
+        "crowd_capacity_hint": 30000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0252,
+          35.64395
+        ]
+      },
+      "properties": {
+        "id": "beach_stage",
+        "name": "BEACH STAGE",
+        "type": "stage",
+        "x": 248,
+        "y": 219,
+        "crowd_capacity_hint": 7000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0342,
+          35.64775
+        ]
+      },
+      "properties": {
+        "id": "messe_gate_central",
+        "name": "Makuhari Messe Central Gate",
+        "type": "gate",
+        "x": 570,
+        "y": 1460,
+        "crowd_capacity_hint": 9000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0388,
+          35.64805
+        ]
+      },
+      "properties": {
+        "id": "messe_gate_east",
+        "name": "Makuhari Messe East Gate",
+        "type": "gate",
+        "x": 1010,
+        "y": 1456,
+        "crowd_capacity_hint": 9000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0314,
+          35.64705
+        ]
+      },
+      "properties": {
+        "id": "pacific_stage",
+        "name": "PACIFIC STAGE / Hall 8",
+        "type": "stage",
+        "x": 206,
+        "y": 1225,
+        "crowd_capacity_hint": 6000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0327,
+          35.64715
+        ]
+      },
+      "properties": {
+        "id": "spotify_stage",
+        "name": "Spotify Stage / Hall 7",
+        "type": "stage",
+        "x": 340,
+        "y": 1222,
+        "crowd_capacity_hint": 6000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0359,
+          35.64735
+        ]
+      },
+      "properties": {
+        "id": "sonic_stage",
+        "name": "SONIC STAGE / Hall 4",
+        "type": "stage",
+        "x": 732,
+        "y": 1210,
+        "crowd_capacity_hint": 9000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.03895,
+          35.64775
+        ]
+      },
+      "properties": {
+        "id": "mountain_stage",
+        "name": "MOUNTAIN STAGE / Hall 1-2",
+        "type": "stage",
+        "x": 1085,
+        "y": 1195,
+        "crowd_capacity_hint": 12000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0364,
+          35.65
+        ]
+      },
+      "properties": {
+        "id": "hall9",
+        "name": "Hall 9",
+        "type": "venue",
+        "x": 704,
+        "y": 1740,
+        "crowd_capacity_hint": 4000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0362,
+          35.65095
+        ]
+      },
+      "properties": {
+        "id": "hall11",
+        "name": "Hall 11",
+        "type": "venue",
+        "x": 704,
+        "y": 1908,
+        "crowd_capacity_hint": 4000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.0352,
+          35.64872
+        ]
+      },
+      "properties": {
+        "id": "messe_connector",
+        "name": "Messe Connector",
+        "type": "junction",
+        "x": 640,
+        "y": 1570,
+        "crowd_capacity_hint": 8000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          140.04165,
+          35.6483
+        ]
+      },
+      "properties": {
+        "id": "station_kaihin_makuhari",
+        "name": "JR Kaihin-Makuhari Station",
+        "type": "station",
+        "x": 705,
+        "y": 2095,
+        "crowd_capacity_hint": 20000
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            140.04165,
+            35.6483
+          ],
+          [
+            140.0352,
+            35.64872
+          ],
+          [
+            140.0342,
+            35.64775
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route_station_to_messe",
+        "name": "Kaihin-Makuhari -> Makuhari Messe",
+        "type": "public_access",
+        "bidirectional": true,
+        "weight": 1.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            140.0255414012739,
+            35.6452638671875
+          ],
+          [
+            140.03065605095543,
+            35.6452978515625
+          ],
+          [
+            140.0357940552017,
+            35.64531484375
+          ],
+          [
+            140.03836305732486,
+            35.64534033203125
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route_messe_front",
+        "name": "Makuhari Messe Front Corridor",
+        "type": "internal_corridor",
+        "bidirectional": true,
+        "weight": 0.8
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            140.0342,
+            35.64775
+          ],
+          [
+            140.0314,
+            35.64602
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route_messe_to_marine",
+        "name": "Makuhari Messe -> ZOZO Marine Entrance",
+        "type": "intervenue_walk",
+        "bidirectional": true,
+        "weight": 1.2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            140.0314,
+            35.64602
+          ],
+          [
+            140.0271,
+            35.64555
+          ],
+          [
+            140.0252,
+            35.64395
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route_marine_to_beach",
+        "name": "ZOZO Marine -> Beach Stage",
+        "type": "intervenue_walk",
+        "bidirectional": true,
+        "weight": 1.5
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            140.0342,
+            35.64775
+          ],
+          [
+            140.0352,
+            35.64872
+          ],
+          [
+            140.0364,
+            35.65
+          ],
+          [
+            140.0362,
+            35.65095
+          ]
+        ]
+      },
+      "properties": {
+        "id": "route_messe_to_halls9_11",
+        "name": "Makuhari Messe -> Hall 9/11",
+        "type": "internal_corridor",
+        "bidirectional": true,
+        "weight": 1.0
+      }
+    }
+  ]
+}

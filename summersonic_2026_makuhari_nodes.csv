@@ -1,0 +1,15 @@
+id,name,type,x,y,lat,lon,crowd_capacity_hint
+entrance_main,ENTRANCE / ZOZO MARINE,gate,795,813,35.64602,140.0314,9000
+sub_entrance,SUB ENTRANCE,gate,225,555,35.64555,140.0271,3500
+marine_stage,MARINE STAGE,stage,804,520,35.6452389,140.0309222,30000
+beach_stage,BEACH STAGE,stage,248,219,35.64395,140.0252,7000
+messe_gate_central,Makuhari Messe Central Gate,gate,570,1460,35.64775,140.0342,9000
+messe_gate_east,Makuhari Messe East Gate,gate,1010,1456,35.64805,140.0388,9000
+pacific_stage,PACIFIC STAGE / Hall 8,stage,206,1225,35.64705,140.0314,6000
+spotify_stage,Spotify Stage / Hall 7,stage,340,1222,35.64715,140.0327,6000
+sonic_stage,SONIC STAGE / Hall 4,stage,732,1210,35.64735,140.0359,9000
+mountain_stage,MOUNTAIN STAGE / Hall 1-2,stage,1085,1195,35.64775,140.03895,12000
+hall9,Hall 9,venue,704,1740,35.65,140.0364,4000
+hall11,Hall 11,venue,704,1908,35.65095,140.0362,4000
+messe_connector,Messe Connector,junction,640,1570,35.64872,140.0352,8000
+station_kaihin_makuhari,JR Kaihin-Makuhari Station,station,705,2095,35.6483,140.04165,20000

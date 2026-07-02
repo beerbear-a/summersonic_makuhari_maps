@@ -21,10 +21,15 @@ type TalkTarget =
 
 const AGENT_COUNT = 800;
 const MAX_LOG_ITEMS = 60;
-/** 歩くモードのカメラズーム倍率（整数だとドットが崩れない） */
-const WALK_ZOOM_DEFAULT = 6;
-const WALK_ZOOM_MIN = 3;
-const WALK_ZOOM_MAX = 8;
+/** 画面に表示するビューポートのサイズ（ワールドはこの4倍の広さ） */
+const VIEW_WIDTH = 672;
+const VIEW_HEIGHT = 1120;
+/** 全体マップ（俯瞰モード）のズーム: ワールド全体がちょうど収まる */
+const OVERVIEW_ZOOM = VIEW_WIDTH / WORLD_WIDTH; // 0.25
+/** 歩くモード（詳細マップ）のズーム倍率（整数だとドットが崩れない） */
+const WALK_ZOOM_DEFAULT = 2;
+const WALK_ZOOM_MIN = 1;
+const WALK_ZOOM_MAX = 4;
 
 async function boot(): Promise<void> {
   // ドット絵: 拡大縮小してもにじまないように nearest 補間にする
@@ -32,8 +37,8 @@ async function boot(): Promise<void> {
 
   const app = new Application();
   await app.init({
-    width: WORLD_WIDTH,
-    height: WORLD_HEIGHT,
+    width: VIEW_WIDTH,
+    height: VIEW_HEIGHT,
     background: 0x0d1b2e,
     antialias: false,
     roundPixels: true,
@@ -45,7 +50,7 @@ async function boot(): Promise<void> {
   const heatmap = new HeatmapRenderer(sim.grid);
   const renderer = new Renderer(app, sim, heatmap);
   // プレイヤーは海浜幕張駅前からスタート
-  const player = new Player(268, 1044);
+  const player = new Player(1072, 4176); // 海浜幕張駅前
 
   // ---------------- 歩くモード（ポケモン風）とキー入力 ----------------
   let walkMode = false;
@@ -62,6 +67,7 @@ async function boot(): Promise<void> {
       pressed.add(key);
       e.preventDefault(); // 矢印キーでページがスクロールしないように
     }
+    if (key === 'shift') pressed.add('shift');
     if (walkMode && TALK_KEYS.has(key)) {
       e.preventDefault();
       handleTalkKey();
@@ -82,9 +88,9 @@ async function boot(): Promise<void> {
   /** プレイヤーの近くにいる話しかけ可能な相手を探す */
   function findTalkTarget(): TalkTarget | null {
     if (!walkMode) return null;
-    // まず観客（半径26px）
+    // まず観客（半径104px ≒ 2〜3歩分）
     let bestAgent: Agent | null = null;
-    let bestDist = 26 * 26;
+    let bestDist = 104 * 104;
     for (const a of sim.agents) {
       if (!a.active || a.left) continue;
       const d = (a.x - player.x) ** 2 + (a.y - player.y) ** 2;
@@ -94,9 +100,9 @@ async function boot(): Promise<void> {
       }
     }
     if (bestAgent) return { kind: 'agent', agent: bestAgent };
-    // 次に施設の看板（半径44px）
+    // 次に施設の看板（半径176px）
     let bestFacility: Facility | null = null;
-    let bestFDist = 44 * 44;
+    let bestFDist = 176 * 176;
     for (const f of facilities) {
       const d = (f.x - player.x) ** 2 + (f.y - player.y) ** 2;
       if (d < bestFDist) {
@@ -253,18 +259,18 @@ async function boot(): Promise<void> {
   // ---------------- カメラ ----------------
   function updateCamera(dtSeconds: number): void {
     const world = renderer.world;
-    const targetScale = walkMode ? walkZoom : 1;
+    const targetScale = walkMode ? walkZoom : OVERVIEW_ZOOM;
     // ズームとスクロールをなめらかに補間
     const k = Math.min(1, dtSeconds * 8);
     const scale = world.scale.x + (targetScale - world.scale.x) * k;
-    world.scale.set(Math.abs(scale - targetScale) < 0.01 ? targetScale : scale);
+    world.scale.set(Math.abs(scale - targetScale) < 0.005 ? targetScale : scale);
 
     let tx = 0;
     let ty = 0;
     if (walkMode) {
       const s = world.scale.x;
-      tx = clampNum(WORLD_WIDTH / 2 - player.x * s, WORLD_WIDTH - WORLD_WIDTH * s, 0);
-      ty = clampNum(WORLD_HEIGHT / 2 - player.y * s, WORLD_HEIGHT - WORLD_HEIGHT * s, 0);
+      tx = clampNum(VIEW_WIDTH / 2 - player.x * s, VIEW_WIDTH - WORLD_WIDTH * s, 0);
+      ty = clampNum(VIEW_HEIGHT / 2 - player.y * s, VIEW_HEIGHT - WORLD_HEIGHT * s, 0);
     }
     world.position.set(
       world.position.x + (tx - world.position.x) * k,
@@ -284,6 +290,7 @@ async function boot(): Promise<void> {
           down: pressed.has('s') || pressed.has('arrowdown'),
           left: pressed.has('a') || pressed.has('arrowleft'),
           right: pressed.has('d') || pressed.has('arrowright'),
+          run: pressed.has('shift'),
         },
         sim.map,
         sim.grid,
@@ -295,8 +302,8 @@ async function boot(): Promise<void> {
     talkTarget = dialogueOpen ? talkTarget : findTalkTarget();
     const bubblePos = !dialogueOpen && talkTarget
       ? talkTarget.kind === 'agent'
-        ? { x: talkTarget.agent.x, y: talkTarget.agent.y - 8 }
-        : { x: talkTarget.facility.x, y: talkTarget.facility.y - 4 }
+        ? { x: talkTarget.agent.x, y: talkTarget.agent.y - 36 }
+        : { x: talkTarget.facility.x, y: talkTarget.facility.y - 16 }
       : null;
     updateCamera(dt);
     heatmap.update(dt);

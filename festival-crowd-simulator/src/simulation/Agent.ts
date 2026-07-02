@@ -82,7 +82,7 @@ export class Agent {
   /** watching 中のアクト */
   currentActId: string | null = null;
   /** この距離（px, 歩行距離）まで近づいたら到着扱い */
-  private arriveDist = 16;
+  private arriveDist = 64;
   /** eating / toilet / shopping が終わる時刻（分） */
   private activityUntil = -1;
   /** 次に行動を考え直す時刻（分） */
@@ -104,7 +104,7 @@ export class Agent {
     this.y = spawnY;
     this.targetX = this.x;
     this.targetY = this.y;
-    this.speed = 22 + Math.random() * 14; // px/分
+    this.speed = 88 + Math.random() * 56; // px/分（詳細スケール）
 
     this.hunger = Math.random() * 35;
     this.toilet = Math.random() * 30;
@@ -242,17 +242,17 @@ export class Agent {
       (!wantsMore && Math.random() < 0.6) ||
       (this.satisfaction < 20 && this.stress > 80 && Math.random() < 0.3)
     ) {
-      this.setFacilityTarget(ctx.nearestOfType('exit', this.x, this.y), 'leaving', 24);
+      this.setFacilityTarget(ctx.nearestOfType('exit', this.x, this.y), 'leaving', 96);
       return;
     }
 
     // 生理的欲求を最優先（近い方の施設へ）
     if (this.toilet >= 70) {
-      this.setFacilityTarget(ctx.nearestOfType('toilet', this.x, this.y), 'moving', 24);
+      this.setFacilityTarget(ctx.nearestOfType('toilet', this.x, this.y), 'moving', 96);
       return;
     }
     if (this.hunger >= 70) {
-      this.setFacilityTarget(ctx.nearestOfType('food', this.x, this.y), 'moving', 28);
+      this.setFacilityTarget(ctx.nearestOfType('food', this.x, this.y), 'moving', 112);
       return;
     }
 
@@ -277,7 +277,7 @@ export class Agent {
 
     // 暇な時間帯: 物販 / 休憩 / ぶらつき
     if (!this.hasShopped && Math.random() < 0.3) {
-      this.setFacilityTarget(ctx.nearestOfType('goods', this.x, this.y), 'moving', 26);
+      this.setFacilityTarget(ctx.nearestOfType('goods', this.x, this.y), 'moving', 104);
       return;
     }
     if (this.fatigue >= 65) {
@@ -301,7 +301,7 @@ export class Agent {
     // 興味が高いほど前方（ステージ近く）まで詰める。
     // 興味が低いほど手前で止まる → 自然に扇状の観客だまりができる
     const interest = this.preference.get(act.id) ?? 50;
-    this.arriveDist = clamp(18 + (140 - interest) * 0.55, 14, 88);
+    this.arriveDist = clamp(72 + (140 - interest) * 2.2, 56, 352);
   }
 
   private setFacilityTarget(
@@ -326,7 +326,7 @@ export class Agent {
     this.state = 'moving';
     this.targetX = wp.x;
     this.targetY = wp.y;
-    this.arriveDist = 20 + Math.random() * 24;
+    this.arriveDist = 80 + Math.random() * 96;
   }
 
   /** 空いている経由地を探して休憩に向かう */
@@ -373,8 +373,8 @@ export class Agent {
 
     let ang = Math.atan2(dy, dx);
     // ストレスが高いと危険水準の混雑を避けて斜めに迂回する（ルール7）
-    const aheadX = this.x + dx * 18;
-    const aheadY = this.y + dy * 18;
+    const aheadX = this.x + dx * 72;
+    const aheadY = this.y + dy * 72;
     if (this.stress > 60 && ctx.grid.levelAt(aheadX, aheadY) === 3) {
       ang += (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 3);
     } else {
@@ -398,12 +398,12 @@ export class Agent {
 
   /** watching・食事中などの、その場での微移動 */
   private driftInPlace(dtMin: number, ctx: AgentContext): void {
-    const nx = this.x + (Math.random() - 0.5) * 2.2 * dtMin;
-    const ny = this.y + (Math.random() - 0.5) * 2.2 * dtMin;
+    const nx = this.x + (Math.random() - 0.5) * 8.8 * dtMin;
+    const ny = this.y + (Math.random() - 0.5) * 8.8 * dtMin;
     if (!ctx.map.isWalkable(nx, ny)) return;
     // 目的地から離れすぎないようにする
     const field = this.targetPoiId ? ctx.fields.get(this.targetPoiId) : undefined;
-    if (field && field.distanceAt(nx, ny) > this.arriveDist + 10) return;
+    if (field && field.distanceAt(nx, ny) > this.arriveDist + 40) return;
     this.x = clamp(nx, 2, WORLD_WIDTH - 2);
     this.y = clamp(ny, 2, WORLD_HEIGHT - 2);
   }

@@ -1,11 +1,11 @@
 /**
  * 混雑グリッド。
- * マップ全体を cellSize(24px = 3タイル) のグリッドに分割し、
+ * マップ全体を cellSize(96px = 3タイル) のグリッドに分割し、
  * 各セル内の観客数をカウントする。
  * ヒートマップ描画と、混雑による移動速度低下の両方で使う。
  *
- * 混雑レベルの基準（24pxセル。仕様書の 40pxセル基準
- * 「0-4 / 5-14 / 15-29 / 30+」を面積比で換算したもの）:
+ * 混雑レベルの基準（96pxセル = 会場比で旧24pxセルと同一。
+ * 仕様書の 40pxセル基準「0-4 / 5-14 / 15-29 / 30+」を面積比で換算したもの）:
  *   0-2人  : 空いている  (level 0)
  *   3-6人  : やや混雑    (level 1)
  *   7-12人 : 混雑        (level 2)
@@ -20,7 +20,7 @@ export class CrowdGrid {
   constructor(
     readonly width: number,
     readonly height: number,
-    readonly cellSize = 24,
+    readonly cellSize = 96,
   ) {
     this.cols = Math.ceil(width / cellSize);
     this.rows = Math.ceil(height / cellSize);

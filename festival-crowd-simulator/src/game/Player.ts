@@ -14,6 +14,8 @@ export interface PlayerInput {
   down: boolean;
   left: boolean;
   right: boolean;
+  /** Shift でダッシュ */
+  run: boolean;
 }
 
 const clamp = (v: number, min: number, max: number) =>
@@ -22,8 +24,8 @@ const clamp = (v: number, min: number, max: number) =>
 export class Player {
   x: number;
   y: number;
-  /** 実時間ベースの歩行速度（px/秒） */
-  speed = 84;
+  /** 実時間ベースの歩行速度（px/秒、詳細スケール） */
+  speed = 130;
   /** 歩行アニメーション用: 移動中か */
   moving = false;
   /** 向き（スプライトの反転用）: 1 = 右, -1 = 左 */
@@ -52,15 +54,16 @@ export class Player {
     else if (dx < 0) this.dir = 'left';
     else if (dy < 0) this.dir = 'up';
     else if (dy > 0) this.dir = 'down';
-    this.walkPhase += dtSeconds * 10;
+    this.walkPhase += dtSeconds * (input.run ? 15 : 10);
 
     const len = Math.hypot(dx, dy);
     dx /= len;
     dy /= len;
 
-    // 混雑した人混みの中は進みにくい（観客と同じルール）
+    // 混雑した人混みの中は進みにくい（観客と同じルール）。Shift でダッシュ
     const factor = grid.speedFactorAt(this.x, this.y);
-    const step = this.speed * (0.4 + 0.6 * factor) * dtSeconds;
+    const dash = input.run ? 1.8 : 1;
+    const step = this.speed * dash * (0.4 + 0.6 * factor) * dtSeconds;
 
     const nx = clamp(this.x + dx * step, 4, WORLD_WIDTH - 4);
     const ny = clamp(this.y + dy * step, 4, WORLD_HEIGHT - 4);

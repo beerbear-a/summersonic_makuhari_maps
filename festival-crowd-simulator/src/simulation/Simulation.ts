@@ -43,7 +43,7 @@ export interface Metrics {
 
 export class Simulation {
   readonly map = new TileMap();
-  readonly grid = new CrowdGrid(WORLD_WIDTH, WORLD_HEIGHT, 24);
+  readonly grid = new CrowdGrid(WORLD_WIDTH, WORLD_HEIGHT, 96);
   readonly timetable = new Timetable(acts);
   readonly agents: Agent[] = [];
   /** POI id（施設 / 経由地）→ フローフィールド */
@@ -96,8 +96,8 @@ export class Simulation {
         }
       }
       const pos = this.map.findNearestWalkable(
-        sp.x + (Math.random() - 0.5) * 48,
-        sp.y + (Math.random() - 0.5) * 24,
+        sp.x + (Math.random() - 0.5) * 192,
+        sp.y + (Math.random() - 0.5) * 96,
       );
       const spawnTime = DAY_START + Math.random() * 75;
       this.agents.push(new Agent(i, spawnTime, pos.x, pos.y, acts));
@@ -282,7 +282,7 @@ export class Simulation {
         if (!a.active || a.left) continue;
         if (
           (a.state === 'toilet' || a.targetFacilityId === f.id) &&
-          (field?.distanceAt(a.x, a.y) ?? Infinity) < 90
+          (field?.distanceAt(a.x, a.y) ?? Infinity) < 360
         ) {
           users++;
         }

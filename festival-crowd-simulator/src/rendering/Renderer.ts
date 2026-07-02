@@ -32,6 +32,9 @@ const STATE_COLORS: Record<AgentState, number> = {
   leaving: 0x9aa4ae, // 灰: 退場中
 };
 
+/** キャラクタースプライト（6x10px）のワールド上の倍率 */
+const CHAR_SCALE = 4;
+
 const STATE_ORDER: AgentState[] = [
   'watching',
   'moving',
@@ -78,6 +81,10 @@ export class Renderer {
   private readonly playerRing = new Graphics();
   /** 話しかけ可能な相手の頭上に出す吹き出し */
   private readonly talkBubble: Container;
+  /** 歩くモード時に左上へ出す全体マップ（ミニマップ） */
+  private readonly minimap = new Container();
+  private readonly minimapDot = new Graphics();
+  private readonly minimapScale: number;
   private pulse = 0;
 
   constructor(
@@ -110,6 +117,25 @@ export class Renderer {
     this.world.addChild(labelLayer);
     app.stage.addChild(this.world);
 
+    // ---- ミニマップ（歩くモード時の全体マップ + 現在地） ----
+    const MINIMAP_HEIGHT = 236;
+    this.minimapScale = MINIMAP_HEIGHT / WORLD_HEIGHT;
+    const mmWidth = WORLD_WIDTH * this.minimapScale;
+    const mmFrame = new Graphics()
+      .rect(-4, -4, mmWidth + 8, MINIMAP_HEIGHT + 8)
+      .fill(0x14161c);
+    const mmSprite = new Sprite(mapTexture);
+    mmSprite.scale.set(this.minimapScale);
+    this.minimapDot.circle(0, 0, 3).fill(0xffe066);
+    this.minimapDot.circle(0, 0, 1.2).fill(0xd32f2f);
+    this.minimap.addChild(mmFrame);
+    this.minimap.addChild(mmSprite);
+    this.minimap.addChild(this.minimapDot);
+    this.minimap.position.set(12, 12);
+    this.minimap.alpha = 0.92;
+    this.minimap.visible = false;
+    app.stage.addChild(this.minimap);
+
     this.buildLabels(labelLayer);
 
     // ---- 観客キャラクターのテクスチャセットを事前生成 ----
@@ -136,6 +162,7 @@ export class Renderer {
     for (const agent of sim.agents) {
       const sprite = new Sprite(this.agentSets[1][agent.id % variantCount].front[0]);
       sprite.anchor.set(0.5, 0.9);
+      sprite.scale.set(CHAR_SCALE);
       sprite.visible = false;
       sprite.roundPixels = true;
       sprite.position.set(agent.x, agent.y);
@@ -146,7 +173,7 @@ export class Renderer {
     }
 
     // ---- プレイヤー（赤キャップのトレーナー + 足元の点滅リング） ----
-    this.playerRing.circle(0, 0, 6).stroke({ color: 0xffe066, width: 1.5 });
+    this.playerRing.circle(0, 0, 24).stroke({ color: 0xffe066, width: 5 });
     this.world.addChild(this.playerRing);
     this.playerSet = makePersonSet(app.renderer, {
       skin: 0xf3c89b,
@@ -158,6 +185,7 @@ export class Renderer {
     });
     this.playerSprite = new Sprite(this.playerSet.front[0]);
     this.playerSprite.anchor.set(0.5, 0.92);
+    this.playerSprite.scale.set(CHAR_SCALE);
     this.playerSprite.roundPixels = true;
     this.world.addChild(this.playerSprite);
 
@@ -203,7 +231,7 @@ export class Renderer {
       // 移動方向（鑑賞中はステージの方向）から向きを決める
       let dx = a.x - this.prevX[i];
       let dy = a.y - this.prevY[i];
-      const moved = Math.abs(dx) + Math.abs(dy) > 0.06;
+      const moved = Math.abs(dx) + Math.abs(dy) > 0.24;
       if (a.state === 'watching') {
         dx = a.targetX - a.x;
         dy = a.targetY - a.y;
@@ -224,18 +252,20 @@ export class Renderer {
         this.agentView[i] === 1 ? 'back' : this.agentView[i] >= 2 ? 'side' : 'front';
       const frame = moved ? ((walkFrame + a.id) % 2) as 0 | 1 : 0;
       s.texture = set[view][frame];
-      s.scale.x = this.agentView[i] === 3 ? -1 : 1;
+      s.scale.x = this.agentView[i] === 3 ? -CHAR_SCALE : CHAR_SCALE;
     }
 
-    // ---- ラベルはズームしても画面上で最大2倍までに抑える ----
+    // ---- ラベルはズームによらず画面上でほぼ一定サイズに保つ ----
+    // 俯瞰(0.25x)では等倍相当、歩くモードでは2倍相当で表示する
     const zoom = this.world.scale.x;
-    const chipScale = 1 / Math.max(1, zoom / 2);
+    const chipTarget = zoom < 0.5 ? 1 : 2;
+    const chipScale = chipTarget / Math.max(zoom, 0.05);
     for (const chip of this.scaledChips) {
       if (chip.scale.x !== chipScale) chip.scale.set(chipScale);
     }
 
     // ---- プレイヤーの位置・4方向スプライト・歩行アニメーション ----
-    const bob = player.moving ? Math.abs(Math.sin(player.walkPhase)) * 1 : 0;
+    const bob = player.moving ? Math.abs(Math.sin(player.walkPhase)) * 4 : 0;
     this.playerSprite.position.set(player.x, player.y - bob);
     const pView: ViewKey =
       player.dir === 'up' ? 'back' : player.dir === 'down' ? 'front' : 'side';
@@ -243,14 +273,24 @@ export class Renderer {
       ? ((Math.floor(player.walkPhase) % 2) as 0 | 1)
       : 0;
     this.playerSprite.texture = this.playerSet[pView][pFrame];
-    this.playerSprite.scale.x = player.dir === 'left' ? -1 : 1;
+    this.playerSprite.scale.x = player.dir === 'left' ? -CHAR_SCALE : CHAR_SCALE;
     this.playerRing.position.set(player.x, player.y);
+    this.playerRing.scale.set(zoom < 0.5 ? 4 : 1);
     this.playerRing.alpha = 0.45 + Math.sin(this.pulse) * 0.3;
+
+    // ---- ミニマップ（歩くモード時のみ表示） ----
+    this.minimap.visible = zoom >= 0.5;
+    if (this.minimap.visible) {
+      this.minimapDot.position.set(
+        player.x * this.minimapScale,
+        player.y * this.minimapScale,
+      );
+    }
 
     // ---- 話しかけ吹き出し ----
     this.talkBubble.visible = talkTarget !== null;
     if (talkTarget) {
-      this.talkBubble.position.set(talkTarget.x, talkTarget.y - 10);
+      this.talkBubble.position.set(talkTarget.x, talkTarget.y - 12);
       this.talkBubble.alpha = 0.75 + Math.sin(this.pulse * 1.4) * 0.25;
     }
 
@@ -284,15 +324,15 @@ export class Renderer {
         dy /= len;
         const px = -dy; // 進行方向に垂直な単位ベクトル
         const py = dx;
-        const ax = sx + dx * (len + 30);
-        const ay = sy + dy * (len + 30);
+        const ax = sx + dx * (len + 120);
+        const ay = sy + dy * (len + 120);
         const flicker = 0.1 + Math.abs(Math.sin(this.pulse * 0.7)) * 0.08;
         this.lightEffects
           .poly([
-            sx + px * 26, sy + py * 26,
-            sx - px * 26, sy - py * 26,
-            ax - px * 52, ay - py * 52,
-            ax + px * 52, ay + py * 52,
+            sx + px * 104, sy + py * 104,
+            sx - px * 104, sy - py * 104,
+            ax - px * 208, ay - py * 208,
+            ax + px * 208, ay + py * 208,
           ])
           .fill({ color, alpha: duskT * flicker });
       }
@@ -325,12 +365,12 @@ export class Renderer {
     for (const f of facilities) {
       const chipText = this.shortName(f.id, f.name);
       const label = this.makeChip(chipText, 0xffffff, 0x14161c);
-      label.position.set(f.x, f.type === 'stage' ? f.y - 14 : f.y - 12);
+      label.position.set(f.x, f.type === 'stage' ? f.y - 56 : f.y - 48);
       layer.addChild(label);
 
       if (f.type === 'stage') {
         const live = this.makeChip('LIVE', 0xffffff, 0xcc1133);
-        live.position.set(f.x, f.y - 26);
+        live.position.set(f.x, f.y - 104);
         live.visible = false;
         layer.addChild(live);
         this.liveChips.set(f.id, live);
@@ -339,10 +379,10 @@ export class Renderer {
 
     // 場所の説明ラベル
     const areaLabels: Array<[string, number, number]> = [
-      ['ZOZO MARINE STADIUM', 392, 122],
-      ['MAKUHARI MESSE', 250, 506],
-      ['ENTRANCE', 396, 452],
-      ['SUB ENT.', 112, 278],
+      ['ZOZO MARINE STADIUM', 1568, 488],
+      ['MAKUHARI MESSE', 1000, 2024],
+      ['ENTRANCE', 1584, 1808],
+      ['SUB ENT.', 448, 1112],
     ];
     for (const [text, x, y] of areaLabels) {
       const chip = this.makeChip(text, 0xc9d1dc, 0x14161c);

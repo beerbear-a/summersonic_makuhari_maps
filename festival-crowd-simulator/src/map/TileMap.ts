@@ -8,8 +8,15 @@
 
 import { Graphics } from 'pixi.js';
 import { WORLD_WIDTH, WORLD_HEIGHT } from '../data/venues';
+import { decorations } from '../data/decorations';
+import type { Decoration } from '../data/decorations';
 
-export const TILE = 8;
+/**
+ * タイルサイズ 32px（詳細スケール）。
+ * レイアウトの論理グリッドは 84x140 のままなので、
+ * 歩行可否・経路探索・レイアウト定義は以前と同一。
+ */
+export const TILE = 32;
 export const COLS = WORLD_WIDTH / TILE; // 84
 export const ROWS = WORLD_HEIGHT / TILE; // 140
 
@@ -334,44 +341,59 @@ export class TileMap {
       for (let col = 0; col < COLS; col++) {
         const t = this.typeAt(col, row);
         const [even, odd] = PALETTE[t];
-        g.rect(col * TILE, row * TILE, TILE, TILE).fill(
-          (col + row) % 2 === 0 ? even : odd,
-        );
-        // 横断歩道の縞・木の幹などタイル内装飾
+        const x = col * TILE;
+        const y = row * TILE;
+        g.rect(x, y, TILE, TILE).fill(even);
+
+        // 8pxテクセルのディザ（決定的な擬似乱数で濃淡を散らす）
+        const h = ((col * 73856093) ^ (row * 19349663)) >>> 0;
+        for (let k = 0; k < 4; k++) {
+          if (((h >> (k * 7)) & 3) !== 0) continue;
+          const tx = (h >> (k * 7 + 2)) & 3;
+          const ty = (h >> (k * 7 + 4)) & 3;
+          g.rect(x + tx * 8, y + ty * 8, 8, 8).fill(odd);
+        }
+
+        // タイル種類ごとの描き込み
         if (t === T.CROSSWALK && col % 2 === 0) {
-          g.rect(col * TILE + 2, row * TILE, 4, TILE).fill(0xd8d8d8);
+          g.rect(x + 8, y, 16, TILE).fill(0xd8d8d8);
         }
         if (t === T.TREE) {
-          g.rect(col * TILE + 3, row * TILE + 5, 2, 3).fill(0x4a3220);
+          // 32pxタイルいっぱいの木（幹 + こんもりした樹冠）
+          g.rect(x + 13, y + 20, 6, 10).fill(0x4a3220);
+          g.rect(x + 4, y + 4, 24, 18).fill(odd);
+          g.rect(x + 8, y + 1, 16, 4).fill(odd);
+          g.rect(x + 7, y + 7, 8, 6).fill(lighten(odd));
         }
-        if (t === T.SEAT && (col + row) % 3 === 0) {
-          g.rect(col * TILE + 2, row * TILE + 2, 4, 4).fill(0x4d7fc0);
+        if (t === T.SEAT && (col + row) % 2 === 0) {
+          g.rect(x + 4, y + 4, 8, 8).fill(0x4d7fc0);
+          g.rect(x + 20, y + 18, 8, 8).fill(0x4d7fc0);
         }
         if (t === T.CITY && (col * 7 + row * 13) % 11 === 0) {
-          g.rect(col * TILE + 2, row * TILE + 2, 3, 3).fill(0x3a404a);
+          g.rect(x + 8, y + 8, 12, 12).fill(0x3a404a);
         }
         if (t === T.BUILDING && row % 2 === 0 && col % 2 === 0) {
-          g.rect(col * TILE + 2, row * TILE + 3, 4, 2).fill(0x77808f);
+          g.rect(x + 8, y + 12, 16, 8).fill(0x77808f);
         }
         if (t === T.STATION && row % 2 === 1 && col % 3 === 0) {
-          g.rect(col * TILE + 2, row * TILE + 2, 4, 3).fill(0x8d84b3);
+          g.rect(x + 8, y + 8, 16, 12).fill(0x8d84b3);
         }
       }
     }
 
     // ---- 道路の車線ダッシュ ----
     for (let c = 0; c < COLS; c += 3) {
-      g.rect(c * TILE, 58 * TILE - 1, 12, 2).fill(0x9ba1a9);
+      g.rect(c * TILE, 58 * TILE - 4, 48, 8).fill(0x9ba1a9);
     }
 
     // ---- ステージ台の前縁ライト（アクセントカラー） ----
     const edges: Array<{ x: number; y: number; w: number; h: number; c: number }> = [
-      { x: 44 * TILE, y: 29 * TILE - 2, w: 10 * TILE, h: 2, c: 0x35b8c9 }, // MARINE
-      { x: 8 * TILE, y: 15 * TILE - 2, w: 14 * TILE, h: 2, c: 0xd4af37 }, // BEACH
-      { x: 10 * TILE, y: 69 * TILE - 2, w: 6 * TILE, h: 2, c: 0xe4739e }, // PACIFIC
-      { x: 19 * TILE, y: 69 * TILE - 2, w: 6 * TILE, h: 2, c: 0x1db954 }, // Spotify
-      { x: 44 * TILE, y: 69 * TILE - 2, w: 6 * TILE, h: 2, c: 0xe08a3c }, // SONIC
-      { x: 54 * TILE - 2, y: 68 * TILE, w: 2, h: 17 * TILE, c: 0x69c25e }, // MOUNTAIN（縦・東向きの前縁）
+      { x: 44 * TILE, y: 29 * TILE - 8, w: 10 * TILE, h: 8, c: 0x35b8c9 }, // MARINE
+      { x: 8 * TILE, y: 15 * TILE - 8, w: 14 * TILE, h: 8, c: 0xd4af37 }, // BEACH
+      { x: 10 * TILE, y: 69 * TILE - 8, w: 6 * TILE, h: 8, c: 0xe4739e }, // PACIFIC
+      { x: 19 * TILE, y: 69 * TILE - 8, w: 6 * TILE, h: 8, c: 0x1db954 }, // Spotify
+      { x: 44 * TILE, y: 69 * TILE - 8, w: 6 * TILE, h: 8, c: 0xe08a3c }, // SONIC
+      { x: 54 * TILE - 8, y: 68 * TILE, w: 8, h: 17 * TILE, c: 0x69c25e }, // MOUNTAIN（縦・東向きの前縁）
     ];
     for (const e of edges) {
       g.rect(e.x, e.y, e.w, e.h).fill(e.c);
@@ -385,9 +407,57 @@ export class TileMap {
       [59, 88], // メッセ東ゲート
     ];
     for (const [gc, gr] of gates) {
-      g.rect(gc * TILE - 2, gr * TILE - 4, 2, 10).fill(0x14161c);
-      g.rect(gc * TILE + 5 * TILE, gr * TILE - 4, 2, 10).fill(0x14161c);
-      g.rect(gc * TILE - 2, gr * TILE - 4, 5 * TILE + 4, 3).fill(0x14161c);
+      g.rect(gc * TILE - 8, gr * TILE - 16, 8, 40).fill(0x14161c);
+      g.rect(gc * TILE + 5 * TILE, gr * TILE - 16, 8, 40).fill(0x14161c);
+      g.rect(gc * TILE - 8, gr * TILE - 16, 5 * TILE + 16, 12).fill(0x14161c);
+    }
+
+    // ---- 配置データ駆動の装飾（data/decorations.ts で追加できる） ----
+    for (const d of decorations) {
+      this.paintDecoration(g, d);
     }
   }
+
+  /** 装飾1つ分の描画。新しい種類は case を1つ足すだけで追加できる */
+  private paintDecoration(g: Graphics, d: Decoration): void {
+    const { x, y } = d;
+    switch (d.kind) {
+      case 'palm':
+        g.rect(x - 3, y - 6, 6, 22).fill(0x7a5a30); // 幹
+        g.rect(x - 16, y - 14, 32, 8).fill(0x3f8a45); // 葉（横）
+        g.rect(x - 6, y - 22, 12, 18).fill(0x46994c); // 葉（縦）
+        g.rect(x - 12, y - 20, 8, 6).fill(0x57a854);
+        g.rect(x + 5, y - 20, 8, 6).fill(0x57a854);
+        break;
+      case 'flag':
+        g.rect(x - 2, y - 26, 4, 30).fill(0x8a8f98); // ポール
+        g.rect(x + 2, y - 26, 14, 10).fill(0xe4739e); // 旗
+        g.rect(x + 2, y - 16, 10, 4).fill(0xc25a80);
+        break;
+      case 'bench':
+        g.rect(x - 14, y - 4, 28, 8).fill(0x8a6a3a);
+        g.rect(x - 12, y + 4, 4, 6).fill(0x5d4526);
+        g.rect(x + 8, y + 4, 4, 6).fill(0x5d4526);
+        break;
+      case 'tent':
+        g.rect(x - 18, y - 10, 36, 20).fill(0xf0f0e8); // 屋根
+        g.rect(x - 18, y - 10, 36, 4).fill(0xd8d8cc);
+        g.rect(x - 16, y + 10, 4, 6).fill(0x6a6a60); // 脚
+        g.rect(x + 12, y + 10, 4, 6).fill(0x6a6a60);
+        break;
+      case 'speaker':
+        g.rect(x - 6, y - 18, 12, 24).fill(0x22262e);
+        g.rect(x - 3, y - 14, 6, 6).fill(0x3a4150); // ウーファー
+        g.rect(x - 3, y - 4, 6, 6).fill(0x3a4150);
+        break;
+    }
+  }
+}
+
+/** 色を少し明るくする（樹冠のハイライト用） */
+function lighten(color: number): number {
+  const r = Math.min(255, Math.floor(((color >> 16) & 0xff) * 1.25));
+  const gg = Math.min(255, Math.floor(((color >> 8) & 0xff) * 1.25));
+  const b = Math.min(255, Math.floor((color & 0xff) * 1.25));
+  return (r << 16) | (gg << 8) | b;
 }

@@ -20,6 +20,7 @@ import { facilities, WORLD_WIDTH, WORLD_HEIGHT } from '../data/venues';
 import type { Simulation } from '../simulation/Simulation';
 import type { AgentState } from '../simulation/Agent';
 import type { HeatmapRenderer } from './HeatmapRenderer';
+import type { Player } from '../game/Player';
 
 /** 観客の状態ごとの色 */
 const STATE_COLORS: Record<AgentState, number> = {
@@ -47,10 +48,14 @@ const DUSK_END = 1170; // 19:30
 const NIGHT_ALPHA = 0.34;
 
 export class Renderer {
+  /** カメラ（ズーム・スクロール）対象のルートコンテナ */
+  readonly world = new Container();
   private readonly agentSprites: Sprite[] = [];
   private readonly liveChips = new Map<string, Container>();
   private readonly nightOverlay = new Graphics();
   private readonly lightEffects = new Graphics();
+  private readonly playerSprite: Sprite;
+  private readonly playerRing = new Graphics();
   private pulse = 0;
 
   constructor(
@@ -75,12 +80,13 @@ export class Renderer {
       .fill(0x0a1030);
     this.nightOverlay.alpha = 0;
 
-    app.stage.addChild(mapLayer);
-    app.stage.addChild(heatmap.container);
-    app.stage.addChild(agentLayer);
-    app.stage.addChild(this.nightOverlay);
-    app.stage.addChild(this.lightEffects);
-    app.stage.addChild(labelLayer);
+    this.world.addChild(mapLayer);
+    this.world.addChild(heatmap.container);
+    this.world.addChild(agentLayer);
+    this.world.addChild(this.nightOverlay);
+    this.world.addChild(this.lightEffects);
+    this.world.addChild(labelLayer);
+    app.stage.addChild(this.world);
 
     this.buildLabels(labelLayer);
 
@@ -97,10 +103,31 @@ export class Renderer {
       agentLayer.addChild(sprite);
       this.agentSprites.push(sprite);
     }
+
+    // ---- プレイヤー（ドット絵トレーナー + 足元の点滅リング） ----
+    this.playerRing.circle(0, 0, 6).stroke({ color: 0xffe066, width: 1.5 });
+    this.world.addChild(this.playerRing);
+    const trainer = new Graphics();
+    trainer.rect(1, 0, 4, 2).fill(0xd32f2f); // 帽子
+    trainer.rect(0, 1, 6, 1).fill(0xb02525); // 帽子のつば
+    trainer.rect(1, 2, 4, 2).fill(0xf3c89b); // 顔
+    trainer.rect(1, 3, 1, 1).fill(0x222222); // 目
+    trainer.rect(4, 3, 1, 1).fill(0x222222);
+    trainer.rect(0, 4, 6, 3).fill(0x1e5fbf); // シャツ
+    trainer.rect(1, 7, 2, 2).fill(0x27334d); // ズボン
+    trainer.rect(3, 7, 2, 2).fill(0x27334d);
+    trainer.rect(1, 9, 2, 1).fill(0x111111); // 靴
+    trainer.rect(3, 9, 2, 1).fill(0x111111);
+    const trainerTexture = app.renderer.generateTexture(trainer);
+    trainer.destroy();
+    this.playerSprite = new Sprite(trainerTexture);
+    this.playerSprite.anchor.set(0.5, 0.92);
+    this.playerSprite.roundPixels = true;
+    this.world.addChild(this.playerSprite);
   }
 
-  /** 毎フレーム: 観客・LIVE 表示・夜間演出を同期する */
-  update(dtSeconds: number): void {
+  /** 毎フレーム: 観客・プレイヤー・LIVE 表示・夜間演出を同期する */
+  update(dtSeconds: number, player: Player): void {
     this.pulse += dtSeconds * 5;
 
     const agents = this.sim.agents;
@@ -115,6 +142,13 @@ export class Renderer {
       s.position.set(a.x, a.y);
       s.tint = STATE_COLORS[a.state];
     }
+
+    // ---- プレイヤーの位置・歩行アニメーション ----
+    const bob = player.moving ? Math.abs(Math.sin(player.walkPhase)) * 1.5 : 0;
+    this.playerSprite.position.set(player.x, player.y - bob);
+    this.playerSprite.scale.x = player.facing;
+    this.playerRing.position.set(player.x, player.y);
+    this.playerRing.alpha = 0.45 + Math.sin(this.pulse) * 0.3;
 
     // ---- LIVE チップの点滅 ----
     const liveStageIds = new Set(this.sim.currentActs.map((a) => a.stageId));
@@ -136,11 +170,26 @@ export class Renderer {
         const stage = facilities.find((f) => f.id === act.stageId);
         if (!stage) continue;
         const color = STAGE_LIGHT[stage.id] ?? 0xffe066;
-        const ax = stage.audienceX ?? stage.x;
-        const ay = (stage.audienceY ?? stage.y) + 30;
+        // ステージ→客席方向へ広がる光の台形（横向きステージにも対応）
+        const sx = stage.x;
+        const sy = stage.y;
+        let dx = (stage.audienceX ?? stage.x) - sx;
+        let dy = (stage.audienceY ?? stage.y) - sy;
+        const len = Math.hypot(dx, dy) || 1;
+        dx /= len;
+        dy /= len;
+        const px = -dy; // 進行方向に垂直な単位ベクトル
+        const py = dx;
+        const ax = sx + dx * (len + 30);
+        const ay = sy + dy * (len + 30);
         const flicker = 0.1 + Math.abs(Math.sin(this.pulse * 0.7)) * 0.08;
         this.lightEffects
-          .poly([stage.x - 26, stage.y, stage.x + 26, stage.y, ax + 52, ay, ax - 52, ay])
+          .poly([
+            sx + px * 26, sy + py * 26,
+            sx - px * 26, sy - py * 26,
+            ax - px * 52, ay - py * 52,
+            ax + px * 52, ay + py * 52,
+          ])
           .fill({ color, alpha: duskT * flicker });
       }
     }

@@ -90,6 +90,30 @@ const WALKABLE = new Set<T>([
   T.FLOOR_MOUNTAIN,
 ]);
 
+/**
+ * 地形の歩行コスト係数（10 = 標準）。
+ * 経路探索はこの係数を掛けたコストで最短経路を選ぶため、
+ * 観客は順路（ピンク）や広場・横断歩道を通り、
+ * 芝生や車道のショートカットはほとんどしなくなる。
+ */
+const TERRAIN_COST: Partial<Record<T, number>> = {
+  [T.ROUTE]: 9, // 順路: わずかに優先
+  [T.CROSSWALK]: 10,
+  [T.PLAZA]: 10,
+  [T.MESSE_FLOOR]: 10,
+  [T.FOOD_FLOOR]: 10,
+  [T.TOILET_FLOOR]: 10,
+  [T.GOODS_FLOOR]: 10,
+  [T.FLOOR_PACIFIC]: 10,
+  [T.FLOOR_SPOTIFY]: 10,
+  [T.FLOOR_SONIC]: 10,
+  [T.FLOOR_MOUNTAIN]: 10,
+  [T.FIELD]: 12,
+  [T.SAND]: 16, // 砂浜: 歩きにくい
+  [T.GRASS]: 45, // 芝生: 立入はできるが避ける
+  [T.ROAD]: 70, // 車道: 横断歩道以外はほぼ渡らない
+};
+
 /** スタジアムの中心とサイズ（px） */
 const STADIUM_CX = 392;
 const STADIUM_CY = 277;
@@ -116,6 +140,13 @@ export class TileMap {
 
   isWalkable(xPx: number, yPx: number): boolean {
     return this.isWalkableTile(Math.floor(xPx / TILE), Math.floor(yPx / TILE));
+  }
+
+  /** タイルの歩行コスト係数（10 = 標準。歩行不可なら Infinity） */
+  costFactorTile(col: number, row: number): number {
+    const t = this.typeAt(col, row);
+    if (!WALKABLE.has(t)) return Infinity;
+    return TERRAIN_COST[t] ?? 10;
   }
 
   /** 指定座標に最も近い歩行可能タイルの中心座標を返す */
@@ -171,8 +202,12 @@ export class TileMap {
     // ---- ZOZOマリンスタジアム ----
     this.buildStadium();
 
-    // ---- サブエントランスからの通路（左側） ----
+    // ---- サブエントランスからの通路（左側）とビーチへの順路 ----
     this.fill(11, 36, 6, 20, T.PLAZA);
+    this.fill(11, 22, 6, 14, T.PLAZA); // ビーチへ北上する順路
+    this.fill(13, 34, 2, 20, T.ROUTE);
+    this.fill(13, 22, 2, 12, T.ROUTE);
+    this.fill(17, 20, 8, 2, T.SAND); // 砂浜への取り付き
 
     // ---- スタジアム前広場（エントランス帯） ----
     this.fill(8, 50, 64, 6, T.PLAZA);
@@ -244,18 +279,20 @@ export class TileMap {
     this.fill(9, 66, 8, 22, T.FLOOR_PACIFIC); // Hall 8
     this.fill(18, 66, 8, 22, T.FLOOR_SPOTIFY); // Hall 7
     this.fill(43, 66, 8, 22, T.FLOOR_SONIC); // Hall 4
-    this.fill(59, 66, 12, 22, T.FLOOR_MOUNTAIN); // Hall 1-2
+    this.fill(52, 66, 19, 22, T.FLOOR_MOUNTAIN); // Hall 1-3（横使い）
 
     // ホール間の間仕切り壁（北側から途中まで。南側は開放）
-    for (const wallCol of [17, 26, 42, 51, 58]) {
+    for (const wallCol of [17, 26, 42, 51]) {
       this.fill(wallCol, 66, 1, 11, T.MESSE_WALL);
     }
 
-    // 各ステージのステージ台（ホール北端）
-    this.fill(10, 66, 6, 3, T.DECK); // PACIFIC
-    this.fill(19, 66, 6, 3, T.DECK); // Spotify
-    this.fill(44, 66, 6, 3, T.DECK); // SONIC
-    this.fill(61, 66, 8, 3, T.DECK); // MOUNTAIN
+    // 各ステージのステージ台
+    this.fill(10, 66, 6, 3, T.DECK); // PACIFIC（北端）
+    this.fill(19, 66, 6, 3, T.DECK); // Spotify（北端）
+    this.fill(44, 66, 6, 3, T.DECK); // SONIC（北端）
+    // MOUNTAIN はホールを横に使う: ステージ台は左（西）端の縦置きで、
+    // 観客は東側からステージ（西向き）を観る
+    this.fill(52, 68, 2, 17, T.DECK);
 
     // FOOD AREA（Hall 5-6）: 屋台の列で歩行不可タイルを点在させる
     this.fill(27, 74, 16, 11, T.FOOD_FLOOR);
@@ -263,8 +300,8 @@ export class TileMap {
       for (let c = 29; c <= 41; c += 3) this.set(c, stallRow, T.BUILDING);
     }
 
-    // TOILET（Hall 3 付近）
-    this.fill(52, 80, 7, 7, T.TOILET_FLOOR);
+    // TOILET（Hall 5-6 の北壁沿い）
+    this.fill(28, 66, 6, 6, T.TOILET_FLOOR);
 
     // 南壁のゲート2箇所（中央ゲート・東ゲート）
     this.fill(33, 88, 5, 1, T.MESSE_FLOOR);
@@ -328,17 +365,16 @@ export class TileMap {
     }
 
     // ---- ステージ台の前縁ライト（アクセントカラー） ----
-    const edges: Array<[number, number, number, number]> = [
-      // [tileX, tileY(台の下端), tile幅, 色]
-      [44, 29, 10, 0x35b8c9], // MARINE
-      [8, 15, 14, 0xd4af37], // BEACH
-      [10, 69, 6, 0xe4739e], // PACIFIC
-      [19, 69, 6, 0x1db954], // Spotify
-      [44, 69, 6, 0xe08a3c], // SONIC
-      [61, 69, 8, 0x69c25e], // MOUNTAIN
+    const edges: Array<{ x: number; y: number; w: number; h: number; c: number }> = [
+      { x: 44 * TILE, y: 29 * TILE - 2, w: 10 * TILE, h: 2, c: 0x35b8c9 }, // MARINE
+      { x: 8 * TILE, y: 15 * TILE - 2, w: 14 * TILE, h: 2, c: 0xd4af37 }, // BEACH
+      { x: 10 * TILE, y: 69 * TILE - 2, w: 6 * TILE, h: 2, c: 0xe4739e }, // PACIFIC
+      { x: 19 * TILE, y: 69 * TILE - 2, w: 6 * TILE, h: 2, c: 0x1db954 }, // Spotify
+      { x: 44 * TILE, y: 69 * TILE - 2, w: 6 * TILE, h: 2, c: 0xe08a3c }, // SONIC
+      { x: 54 * TILE - 2, y: 68 * TILE, w: 2, h: 17 * TILE, c: 0x69c25e }, // MOUNTAIN（縦・東向きの前縁）
     ];
-    for (const [tx, ty, tw, color] of edges) {
-      g.rect(tx * TILE, ty * TILE - 2, tw * TILE, 2).fill(color);
+    for (const e of edges) {
+      g.rect(e.x, e.y, e.w, e.h).fill(e.c);
     }
 
     // ---- ゲートのアーチ（入口の目印） ----

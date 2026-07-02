@@ -8,11 +8,14 @@ import { Application, TextureSource } from 'pixi.js';
 import { Simulation, formatTime } from './simulation/Simulation';
 import { Renderer } from './rendering/Renderer';
 import { HeatmapRenderer } from './rendering/HeatmapRenderer';
+import { Player } from './game/Player';
 import { WORLD_WIDTH, WORLD_HEIGHT } from './data/venues';
 import './style.css';
 
 const AGENT_COUNT = 800;
 const MAX_LOG_ITEMS = 60;
+/** 歩くモードのカメラズーム倍率（整数だとドットが崩れない） */
+const WALK_ZOOM = 3;
 
 async function boot(): Promise<void> {
   // ドット絵: 拡大縮小してもにじまないように nearest 補間にする
@@ -32,6 +35,26 @@ async function boot(): Promise<void> {
   const sim = new Simulation(AGENT_COUNT);
   const heatmap = new HeatmapRenderer(sim.grid);
   const renderer = new Renderer(app, sim, heatmap);
+  // プレイヤーは海浜幕張駅前からスタート
+  const player = new Player(268, 1044);
+
+  // ---------------- 歩くモード（ポケモン風）とキー入力 ----------------
+  let walkMode = false;
+  const pressed = new Set<string>();
+  const MOVE_KEYS = new Set([
+    'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
+  ]);
+  window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (MOVE_KEYS.has(key)) {
+      pressed.add(key);
+      e.preventDefault(); // 矢印キーでページがスクロールしないように
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    pressed.delete(e.key.toLowerCase());
+  });
+  window.addEventListener('blur', () => pressed.clear());
 
   // ---------------- UI 要素 ----------------
   const $ = (id: string) => document.getElementById(id)!;
@@ -50,6 +73,16 @@ async function boot(): Promise<void> {
   const barSatisfaction = $('bar-satisfaction');
   const nowPlayingList = $('now-playing-list');
   const logList = $('log-list');
+  const btnMode = $('btn-mode') as HTMLButtonElement;
+  const modeHint = $('mode-hint');
+
+  btnMode.addEventListener('click', () => {
+    walkMode = !walkMode;
+    btnMode.textContent = walkMode ? '🗺 俯瞰モード' : '🎮 歩くモード';
+    btnMode.classList.toggle('active', walkMode);
+    modeHint.style.display = walkMode ? 'block' : 'none';
+    btnMode.blur(); // ボタンにフォーカスが残ってスペース等が誤爆しないように
+  });
 
   btnPlay.addEventListener('click', () => {
     sim.running = !sim.running;
@@ -110,18 +143,58 @@ async function boot(): Promise<void> {
     }
   }
 
+  // ---------------- カメラ ----------------
+  function updateCamera(dtSeconds: number): void {
+    const world = renderer.world;
+    const targetScale = walkMode ? WALK_ZOOM : 1;
+    // ズームとスクロールをなめらかに補間
+    const k = Math.min(1, dtSeconds * 8);
+    const scale = world.scale.x + (targetScale - world.scale.x) * k;
+    world.scale.set(Math.abs(scale - targetScale) < 0.01 ? targetScale : scale);
+
+    let tx = 0;
+    let ty = 0;
+    if (walkMode) {
+      const s = world.scale.x;
+      tx = clampNum(WORLD_WIDTH / 2 - player.x * s, WORLD_WIDTH - WORLD_WIDTH * s, 0);
+      ty = clampNum(WORLD_HEIGHT / 2 - player.y * s, WORLD_HEIGHT - WORLD_HEIGHT * s, 0);
+    }
+    world.position.set(
+      world.position.x + (tx - world.position.x) * k,
+      world.position.y + (ty - world.position.y) * k,
+    );
+  }
+
   // ---------------- メインループ ----------------
   app.ticker.add((ticker) => {
     const dt = ticker.deltaMS / 1000;
     sim.update(dt);
+    if (walkMode) {
+      player.update(
+        dt,
+        {
+          up: pressed.has('w') || pressed.has('arrowup'),
+          down: pressed.has('s') || pressed.has('arrowdown'),
+          left: pressed.has('a') || pressed.has('arrowleft'),
+          right: pressed.has('d') || pressed.has('arrowright'),
+        },
+        sim.map,
+        sim.grid,
+      );
+    }
+    updateCamera(dt);
     heatmap.update(dt);
-    renderer.update(dt);
+    renderer.update(dt, player);
     updatePanel(dt);
   });
 }
 
 function stageShortName(stageId: string): string {
   return stageId.replace('_stage', '').toUpperCase();
+}
+
+function clampNum(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, v));
 }
 
 function escapeHtml(text: string): string {

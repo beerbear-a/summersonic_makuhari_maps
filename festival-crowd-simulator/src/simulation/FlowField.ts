@@ -110,7 +110,10 @@ export class FlowField {
           }
         }
         const nIdx = nr * COLS + nc;
-        const nCost = cost + moveCost;
+        // 地形コスト: 順路・広場は安く、芝生・車道は高い。
+        // これにより最短経路が自然と順路沿いになる
+        const terrain = map.costFactorTile(nc, nr);
+        const nCost = cost + Math.round((moveCost * terrain) / 10);
         if (nCost < this.dist[nIdx]) {
           this.dist[nIdx] = nCost;
           heap.push(nCost * (1 << PACK_SHIFT) + nIdx);

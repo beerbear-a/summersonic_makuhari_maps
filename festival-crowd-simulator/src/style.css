@@ -151,6 +151,19 @@ button:active {
   color: #08222e;
 }
 
+#btn-mode.active {
+  background: #ffca28;
+  border-color: #ffe082;
+  color: #3d2c00;
+}
+
+.hint {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
 /* ---------------- 統計 ---------------- */
 
 #stats {

@@ -86,11 +86,12 @@ export const facilities: Facility[] = [
     id: 'mountain_stage',
     name: 'MOUNTAIN STAGE',
     type: 'stage',
-    x: 516,
-    y: 540,
+    // Hall 1-3 を横に使い、ステージは左（西）端。観客は東側から西向きに観る
+    x: 424,
+    y: 608,
     capacity: 300,
-    audienceX: 516,
-    audienceY: 600,
+    audienceX: 484,
+    audienceY: 608,
   },
   // ---- 施設 ----
   {
@@ -105,8 +106,8 @@ export const facilities: Facility[] = [
     id: 'toilet_messe',
     name: 'TOILET (MESSE)',
     type: 'toilet',
-    x: 440,
-    y: 668,
+    x: 244,
+    y: 552,
     capacity: 50,
   },
   {

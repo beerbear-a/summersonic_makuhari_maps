@@ -28,6 +28,8 @@ export class Player {
   moving = false;
   /** 向き（スプライトの反転用）: 1 = 右, -1 = 左 */
   facing: 1 | -1 = 1;
+  /** 4方向の向き（ポケモン風スプライト切替用） */
+  dir: 'up' | 'down' | 'left' | 'right' = 'down';
   /** 歩行アニメーションの位相 */
   walkPhase = 0;
 
@@ -45,6 +47,11 @@ export class Player {
 
     if (dx > 0) this.facing = 1;
     else if (dx < 0) this.facing = -1;
+    // 斜め移動は横向きを優先（ポケモン風）
+    if (dx > 0) this.dir = 'right';
+    else if (dx < 0) this.dir = 'left';
+    else if (dy < 0) this.dir = 'up';
+    else if (dy > 0) this.dir = 'down';
     this.walkPhase += dtSeconds * 10;
 
     const len = Math.hypot(dx, dy);

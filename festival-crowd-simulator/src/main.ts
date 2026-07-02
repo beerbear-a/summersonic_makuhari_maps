@@ -9,13 +9,22 @@ import { Simulation, formatTime } from './simulation/Simulation';
 import { Renderer } from './rendering/Renderer';
 import { HeatmapRenderer } from './rendering/HeatmapRenderer';
 import { Player } from './game/Player';
-import { WORLD_WIDTH, WORLD_HEIGHT } from './data/venues';
+import { agentDialogue, facilityDialogue } from './game/Dialogue';
+import { facilities, WORLD_WIDTH, WORLD_HEIGHT } from './data/venues';
+import type { Facility } from './data/venues';
+import type { Agent } from './simulation/Agent';
 import './style.css';
+
+type TalkTarget =
+  | { kind: 'agent'; agent: Agent }
+  | { kind: 'facility'; facility: Facility };
 
 const AGENT_COUNT = 800;
 const MAX_LOG_ITEMS = 60;
 /** 歩くモードのカメラズーム倍率（整数だとドットが崩れない） */
-const WALK_ZOOM = 3;
+const WALK_ZOOM_DEFAULT = 6;
+const WALK_ZOOM_MIN = 3;
+const WALK_ZOOM_MAX = 8;
 
 async function boot(): Promise<void> {
   // ドット絵: 拡大縮小してもにじまないように nearest 補間にする
@@ -40,21 +49,118 @@ async function boot(): Promise<void> {
 
   // ---------------- 歩くモード（ポケモン風）とキー入力 ----------------
   let walkMode = false;
+  let walkZoom = WALK_ZOOM_DEFAULT;
+  let talkTarget: TalkTarget | null = null;
   const pressed = new Set<string>();
   const MOVE_KEYS = new Set([
     'w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
   ]);
+  const TALK_KEYS = new Set([' ', 'z', 'enter']);
   window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     if (MOVE_KEYS.has(key)) {
       pressed.add(key);
       e.preventDefault(); // 矢印キーでページがスクロールしないように
     }
+    if (walkMode && TALK_KEYS.has(key)) {
+      e.preventDefault();
+      handleTalkKey();
+    }
+    // Q / E で歩くモードのズーム調整
+    if (walkMode && key === 'q') {
+      walkZoom = Math.max(WALK_ZOOM_MIN, walkZoom - 1);
+    }
+    if (walkMode && key === 'e') {
+      walkZoom = Math.min(WALK_ZOOM_MAX, walkZoom + 1);
+    }
   });
   window.addEventListener('keyup', (e) => {
     pressed.delete(e.key.toLowerCase());
   });
   window.addEventListener('blur', () => pressed.clear());
+
+  /** プレイヤーの近くにいる話しかけ可能な相手を探す */
+  function findTalkTarget(): TalkTarget | null {
+    if (!walkMode) return null;
+    // まず観客（半径26px）
+    let bestAgent: Agent | null = null;
+    let bestDist = 26 * 26;
+    for (const a of sim.agents) {
+      if (!a.active || a.left) continue;
+      const d = (a.x - player.x) ** 2 + (a.y - player.y) ** 2;
+      if (d < bestDist) {
+        bestDist = d;
+        bestAgent = a;
+      }
+    }
+    if (bestAgent) return { kind: 'agent', agent: bestAgent };
+    // 次に施設の看板（半径44px）
+    let bestFacility: Facility | null = null;
+    let bestFDist = 44 * 44;
+    for (const f of facilities) {
+      const d = (f.x - player.x) ** 2 + (f.y - player.y) ** 2;
+      if (d < bestFDist) {
+        bestFDist = d;
+        bestFacility = f;
+      }
+    }
+    return bestFacility ? { kind: 'facility', facility: bestFacility } : null;
+  }
+
+  // ---------------- 会話ウィンドウ（ポケモン風） ----------------
+  const dialogueEl = document.getElementById('dialogue')!;
+  const dialogueName = document.getElementById('dialogue-name')!;
+  const dialogueText = document.getElementById('dialogue-text')!;
+  let dialogueOpen = false;
+  let typing = false;
+  let fullText = '';
+  let typeTimer: number | undefined;
+
+  function showDialogue(name: string, text: string): void {
+    dialogueOpen = true;
+    typing = true;
+    fullText = text;
+    dialogueName.textContent = name;
+    dialogueText.textContent = '';
+    dialogueEl.style.display = 'block';
+    let i = 0;
+    window.clearInterval(typeTimer);
+    typeTimer = window.setInterval(() => {
+      i++;
+      dialogueText.textContent = fullText.slice(0, i);
+      if (i >= fullText.length) {
+        window.clearInterval(typeTimer);
+        typing = false;
+      }
+    }, 24);
+  }
+
+  function closeDialogue(): void {
+    dialogueOpen = false;
+    typing = false;
+    window.clearInterval(typeTimer);
+    dialogueEl.style.display = 'none';
+  }
+
+  /** 決定キー: セリフ送り（表示中→全文表示→閉じる／相手がいれば話しかける） */
+  function handleTalkKey(): void {
+    if (dialogueOpen) {
+      if (typing) {
+        window.clearInterval(typeTimer);
+        dialogueText.textContent = fullText;
+        typing = false;
+      } else {
+        closeDialogue();
+      }
+      return;
+    }
+    if (!talkTarget) return;
+    const line =
+      talkTarget.kind === 'agent'
+        ? agentDialogue(talkTarget.agent, sim)
+        : facilityDialogue(talkTarget.facility, sim);
+    showDialogue(line.name, line.text);
+  }
 
   // ---------------- UI 要素 ----------------
   const $ = (id: string) => document.getElementById(id)!;
@@ -81,6 +187,7 @@ async function boot(): Promise<void> {
     btnMode.textContent = walkMode ? '🗺 俯瞰モード' : '🎮 歩くモード';
     btnMode.classList.toggle('active', walkMode);
     modeHint.style.display = walkMode ? 'block' : 'none';
+    if (!walkMode) closeDialogue();
     btnMode.blur(); // ボタンにフォーカスが残ってスペース等が誤爆しないように
   });
 
@@ -146,7 +253,7 @@ async function boot(): Promise<void> {
   // ---------------- カメラ ----------------
   function updateCamera(dtSeconds: number): void {
     const world = renderer.world;
-    const targetScale = walkMode ? WALK_ZOOM : 1;
+    const targetScale = walkMode ? walkZoom : 1;
     // ズームとスクロールをなめらかに補間
     const k = Math.min(1, dtSeconds * 8);
     const scale = world.scale.x + (targetScale - world.scale.x) * k;
@@ -169,7 +276,7 @@ async function boot(): Promise<void> {
   app.ticker.add((ticker) => {
     const dt = ticker.deltaMS / 1000;
     sim.update(dt);
-    if (walkMode) {
+    if (walkMode && !dialogueOpen) {
       player.update(
         dt,
         {
@@ -181,10 +288,19 @@ async function boot(): Promise<void> {
         sim.map,
         sim.grid,
       );
+    } else {
+      player.moving = false;
     }
+    // 話しかけ可能な相手（吹き出し表示 & 決定キーの対象）
+    talkTarget = dialogueOpen ? talkTarget : findTalkTarget();
+    const bubblePos = !dialogueOpen && talkTarget
+      ? talkTarget.kind === 'agent'
+        ? { x: talkTarget.agent.x, y: talkTarget.agent.y - 8 }
+        : { x: talkTarget.facility.x, y: talkTarget.facility.y - 4 }
+      : null;
     updateCamera(dt);
     heatmap.update(dt);
-    renderer.update(dt, player);
+    renderer.update(dt, player, bubblePos);
     updatePanel(dt);
   });
 }

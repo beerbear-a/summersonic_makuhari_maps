@@ -8,21 +8,21 @@
  *   5. 施設ラベル・LIVE インジケーター
  */
 
-import {
-  Application,
-  Container,
-  Graphics,
-  Sprite,
-  Text,
-  Texture,
-} from 'pixi.js';
+import { Application, Container, Graphics, Sprite, Text } from 'pixi.js';
 import { facilities, WORLD_WIDTH, WORLD_HEIGHT } from '../data/venues';
 import type { Simulation } from '../simulation/Simulation';
 import type { AgentState } from '../simulation/Agent';
 import type { HeatmapRenderer } from './HeatmapRenderer';
 import type { Player } from '../game/Player';
+import {
+  makePersonSet,
+  HAIR_COLORS,
+  PANTS_COLORS,
+  SKIN_COLORS,
+} from './CharacterSprites';
+import type { PersonTextureSet, ViewKey } from './CharacterSprites';
 
-/** 観客の状態ごとの色 */
+/** 観客の状態ごとの色（キャラクターのシャツの色になる） */
 const STATE_COLORS: Record<AgentState, number> = {
   watching: 0x4fc3f7, // 水色: ライブ鑑賞中
   moving: 0xf2f4f8, // 白: 移動中
@@ -31,6 +31,16 @@ const STATE_COLORS: Record<AgentState, number> = {
   shopping: 0xf06292, // 桃: 買い物中
   leaving: 0x9aa4ae, // 灰: 退場中
 };
+
+const STATE_ORDER: AgentState[] = [
+  'watching',
+  'moving',
+  'eating',
+  'toilet',
+  'shopping',
+  'leaving',
+];
+const STATE_INDEX = new Map(STATE_ORDER.map((s, i) => [s, i]));
 
 /** ステージごとの照明色（夜間演出用） */
 const STAGE_LIGHT: Record<string, number> = {
@@ -51,11 +61,23 @@ export class Renderer {
   /** カメラ（ズーム・スクロール）対象のルートコンテナ */
   readonly world = new Container();
   private readonly agentSprites: Sprite[] = [];
+  /** 観客の直前フレームの位置（向きの判定用） */
+  private readonly prevX: Float32Array;
+  private readonly prevY: Float32Array;
+  /** 観客の現在の向き（0=front, 1=back, 2=side右, 3=side左） */
+  private readonly agentView: Uint8Array;
+  /** [状態][見た目バリエーション] → テクスチャセット */
+  private readonly agentSets: PersonTextureSet[][] = [];
   private readonly liveChips = new Map<string, Container>();
+  /** ズーム時に縮小して画面上のサイズを保つラベル一覧 */
+  private readonly scaledChips: Container[] = [];
   private readonly nightOverlay = new Graphics();
   private readonly lightEffects = new Graphics();
   private readonly playerSprite: Sprite;
+  private readonly playerSet: PersonTextureSet;
   private readonly playerRing = new Graphics();
+  /** 話しかけ可能な相手の頭上に出す吹き出し */
+  private readonly talkBubble: Container;
   private pulse = 0;
 
   constructor(
@@ -90,47 +112,84 @@ export class Renderer {
 
     this.buildLabels(labelLayer);
 
-    // ---- 観客スプライト: 3x3ピクセルの点テクスチャを使い回す ----
-    const dot = new Graphics().rect(0, 0, 3, 3).fill(0xffffff);
-    const texture: Texture = app.renderer.generateTexture(dot);
-    dot.destroy();
+    // ---- 観客キャラクターのテクスチャセットを事前生成 ----
+    // シャツの色 = 状態色。髪・肌・ズボンは id ごとのバリエーション
+    const variantCount = HAIR_COLORS.length;
+    for (const state of STATE_ORDER) {
+      const sets: PersonTextureSet[] = [];
+      for (let v = 0; v < variantCount; v++) {
+        sets.push(
+          makePersonSet(app.renderer, {
+            skin: SKIN_COLORS[v % SKIN_COLORS.length],
+            hair: HAIR_COLORS[v],
+            shirt: STATE_COLORS[state],
+            pants: PANTS_COLORS[v % PANTS_COLORS.length],
+          }),
+        );
+      }
+      this.agentSets.push(sets);
+    }
+
+    this.prevX = new Float32Array(sim.agents.length);
+    this.prevY = new Float32Array(sim.agents.length);
+    this.agentView = new Uint8Array(sim.agents.length);
     for (const agent of sim.agents) {
-      const sprite = new Sprite(texture);
-      sprite.anchor.set(0.5);
+      const sprite = new Sprite(this.agentSets[1][agent.id % variantCount].front[0]);
+      sprite.anchor.set(0.5, 0.9);
       sprite.visible = false;
       sprite.roundPixels = true;
       sprite.position.set(agent.x, agent.y);
+      this.prevX[agent.id] = agent.x;
+      this.prevY[agent.id] = agent.y;
       agentLayer.addChild(sprite);
       this.agentSprites.push(sprite);
     }
 
-    // ---- プレイヤー（ドット絵トレーナー + 足元の点滅リング） ----
+    // ---- プレイヤー（赤キャップのトレーナー + 足元の点滅リング） ----
     this.playerRing.circle(0, 0, 6).stroke({ color: 0xffe066, width: 1.5 });
     this.world.addChild(this.playerRing);
-    const trainer = new Graphics();
-    trainer.rect(1, 0, 4, 2).fill(0xd32f2f); // 帽子
-    trainer.rect(0, 1, 6, 1).fill(0xb02525); // 帽子のつば
-    trainer.rect(1, 2, 4, 2).fill(0xf3c89b); // 顔
-    trainer.rect(1, 3, 1, 1).fill(0x222222); // 目
-    trainer.rect(4, 3, 1, 1).fill(0x222222);
-    trainer.rect(0, 4, 6, 3).fill(0x1e5fbf); // シャツ
-    trainer.rect(1, 7, 2, 2).fill(0x27334d); // ズボン
-    trainer.rect(3, 7, 2, 2).fill(0x27334d);
-    trainer.rect(1, 9, 2, 1).fill(0x111111); // 靴
-    trainer.rect(3, 9, 2, 1).fill(0x111111);
-    const trainerTexture = app.renderer.generateTexture(trainer);
-    trainer.destroy();
-    this.playerSprite = new Sprite(trainerTexture);
+    this.playerSet = makePersonSet(app.renderer, {
+      skin: 0xf3c89b,
+      hair: 0x2e2226,
+      shirt: 0x1e5fbf,
+      pants: 0x27334d,
+      cap: true,
+      capColor: 0xd32f2f,
+    });
+    this.playerSprite = new Sprite(this.playerSet.front[0]);
     this.playerSprite.anchor.set(0.5, 0.92);
     this.playerSprite.roundPixels = true;
     this.world.addChild(this.playerSprite);
+
+    // ---- 話しかけ吹き出し（💬風のドット絵） ----
+    this.talkBubble = new Container();
+    const bubble = new Graphics();
+    bubble.rect(0, 0, 11, 7).fill(0xffffff);
+    bubble.rect(3, 7, 2, 2).fill(0xffffff); // しっぽ
+    bubble.rect(2, 3, 1, 1).fill(0x1c1c24); // 「…」
+    bubble.rect(5, 3, 1, 1).fill(0x1c1c24);
+    bubble.rect(8, 3, 1, 1).fill(0x1c1c24);
+    this.talkBubble.addChild(bubble);
+    this.talkBubble.pivot.set(5, 9);
+    this.talkBubble.visible = false;
+    this.world.addChild(this.talkBubble);
+    this.scaledChips.push(this.talkBubble);
   }
 
-  /** 毎フレーム: 観客・プレイヤー・LIVE 表示・夜間演出を同期する */
-  update(dtSeconds: number, player: Player): void {
+  /**
+   * 毎フレーム: 観客・プレイヤー・LIVE 表示・夜間演出を同期する。
+   * talkTarget は話しかけ可能な相手の位置（吹き出しを出す）。
+   */
+  update(
+    dtSeconds: number,
+    player: Player,
+    talkTarget: { x: number; y: number } | null = null,
+  ): void {
     this.pulse += dtSeconds * 5;
 
     const agents = this.sim.agents;
+    const variantCount = HAIR_COLORS.length;
+    const walkFrame = Math.floor(this.pulse * 1.6);
     for (let i = 0; i < agents.length; i++) {
       const a = agents[i];
       const s = this.agentSprites[i];
@@ -140,15 +199,60 @@ export class Renderer {
       }
       s.visible = true;
       s.position.set(a.x, a.y);
-      s.tint = STATE_COLORS[a.state];
+
+      // 移動方向（鑑賞中はステージの方向）から向きを決める
+      let dx = a.x - this.prevX[i];
+      let dy = a.y - this.prevY[i];
+      const moved = Math.abs(dx) + Math.abs(dy) > 0.06;
+      if (a.state === 'watching') {
+        dx = a.targetX - a.x;
+        dy = a.targetY - a.y;
+      }
+      if (moved || a.state === 'watching') {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          this.agentView[i] = dx >= 0 ? 2 : 3; // side 右 / 左
+        } else if (Math.abs(dy) > 0.01) {
+          this.agentView[i] = dy < 0 ? 1 : 0; // back / front
+        }
+      }
+      this.prevX[i] = a.x;
+      this.prevY[i] = a.y;
+
+      const set =
+        this.agentSets[STATE_INDEX.get(a.state) ?? 1][a.id % variantCount];
+      const view: ViewKey =
+        this.agentView[i] === 1 ? 'back' : this.agentView[i] >= 2 ? 'side' : 'front';
+      const frame = moved ? ((walkFrame + a.id) % 2) as 0 | 1 : 0;
+      s.texture = set[view][frame];
+      s.scale.x = this.agentView[i] === 3 ? -1 : 1;
     }
 
-    // ---- プレイヤーの位置・歩行アニメーション ----
-    const bob = player.moving ? Math.abs(Math.sin(player.walkPhase)) * 1.5 : 0;
+    // ---- ラベルはズームしても画面上で最大2倍までに抑える ----
+    const zoom = this.world.scale.x;
+    const chipScale = 1 / Math.max(1, zoom / 2);
+    for (const chip of this.scaledChips) {
+      if (chip.scale.x !== chipScale) chip.scale.set(chipScale);
+    }
+
+    // ---- プレイヤーの位置・4方向スプライト・歩行アニメーション ----
+    const bob = player.moving ? Math.abs(Math.sin(player.walkPhase)) * 1 : 0;
     this.playerSprite.position.set(player.x, player.y - bob);
-    this.playerSprite.scale.x = player.facing;
+    const pView: ViewKey =
+      player.dir === 'up' ? 'back' : player.dir === 'down' ? 'front' : 'side';
+    const pFrame = player.moving
+      ? ((Math.floor(player.walkPhase) % 2) as 0 | 1)
+      : 0;
+    this.playerSprite.texture = this.playerSet[pView][pFrame];
+    this.playerSprite.scale.x = player.dir === 'left' ? -1 : 1;
     this.playerRing.position.set(player.x, player.y);
     this.playerRing.alpha = 0.45 + Math.sin(this.pulse) * 0.3;
+
+    // ---- 話しかけ吹き出し ----
+    this.talkBubble.visible = talkTarget !== null;
+    if (talkTarget) {
+      this.talkBubble.position.set(talkTarget.x, talkTarget.y - 10);
+      this.talkBubble.alpha = 0.75 + Math.sin(this.pulse * 1.4) * 0.25;
+    }
 
     // ---- LIVE チップの点滅 ----
     const liveStageIds = new Set(this.sim.currentActs.map((a) => a.stageId));
@@ -250,6 +354,7 @@ export class Renderer {
   /** ドット絵風のラベルチップ（黒背景 + 白文字） */
   private makeChip(text: string, color: number, bg: number): Container {
     const chip = new Container();
+    this.scaledChips.push(chip);
     const label = new Text({
       text,
       style: {
@@ -258,7 +363,7 @@ export class Renderer {
         fontWeight: 'bold',
         fill: color,
       },
-      resolution: 2,
+      resolution: 4,
     });
     label.anchor.set(0.5);
     const pad = 3;

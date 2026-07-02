@@ -8,7 +8,13 @@
   </head>
   <body>
     <div id="app">
-      <div id="stage-wrap"></div>
+      <div id="stage-wrap">
+        <div id="dialogue" style="display: none">
+          <div id="dialogue-name"></div>
+          <div id="dialogue-text"></div>
+          <div class="dialogue-next">▼</div>
+        </div>
+      </div>
       <aside id="panel">
         <h1>FES CROWD SIM</h1>
         <p class="subtitle">SUMMER SONIC 東京会場風・ドット絵人流シミュレーター</p>
@@ -27,7 +33,9 @@
 
         <button id="btn-mode">🎮 歩くモード</button>
         <p id="mode-hint" class="hint" style="display: none">
-          WASD / 矢印キーで移動。人混みの中は歩くのが遅くなります
+          WASD / 矢印キーで移動、Q / E でズーム調整。<br />
+          💬が出ている相手に <b>Space / Z</b> で話しかけられます。<br />
+          人混みの中は歩くのが遅くなります
         </p>
 
         <dl id="stats">

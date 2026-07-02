@@ -38,11 +38,66 @@ body {
 
 #stage-wrap {
   flex: 0 0 auto;
+  position: relative;
   border: 3px solid var(--panel-border);
   outline: 3px solid #000;
   overflow: hidden;
   line-height: 0;
   background: #000;
+}
+
+/* ---------------- ポケモン風 会話ウィンドウ ---------------- */
+
+#dialogue {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 4%;
+  z-index: 10;
+  background: #f8f8f0;
+  color: #22222c;
+  border: 3px solid #22222c;
+  box-shadow:
+    0 0 0 3px #f8f8f0,
+    0 0 0 6px #22222c;
+  border-radius: 4px;
+  padding: 10px 14px 16px;
+  line-height: 1.7;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#dialogue-name {
+  display: inline-block;
+  background: #22222c;
+  color: #f8f8f0;
+  font-size: 11px;
+  padding: 1px 8px;
+  margin-bottom: 6px;
+  border-radius: 3px;
+  letter-spacing: 1px;
+}
+
+#dialogue-text {
+  min-height: 1.6em;
+}
+
+.dialogue-next {
+  position: absolute;
+  right: 12px;
+  bottom: 4px;
+  font-size: 12px;
+  animation: nudge 0.7s steps(2, start) infinite;
+}
+
+@keyframes nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
 }
 
 #stage-wrap canvas {

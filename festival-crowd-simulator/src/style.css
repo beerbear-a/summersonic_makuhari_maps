@@ -76,6 +76,17 @@ body {
   flex-direction: column;
   gap: 3px;
   min-width: 120px;
+  line-height: normal;
+}
+
+.phud-score {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffe066;
+  text-align: right;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+  text-shadow: 0 0 6px rgba(255, 224, 102, 0.6);
 }
 
 .phud-row {
@@ -109,6 +120,144 @@ body {
 
 .meter-fill.hype-bar {
   background: #f06292;
+}
+
+#btn-mute {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+}
+
+/* ---------------- 実績トースト ---------------- */
+
+#achievement-toasts {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+  line-height: normal;
+}
+
+.achievement-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff8e1;
+  color: #2a1e00;
+  border: 3px solid #22222c;
+  box-shadow:
+    0 0 0 2px #ffe066,
+    3px 3px 0 rgba(0, 0, 0, 0.5);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  animation: toast-in 0.25s ease-out, toast-out 0.4s ease-in 3.1s forwards;
+}
+
+.achievement-toast .ac-icon {
+  font-size: 20px;
+}
+
+.achievement-toast .ac-title {
+  color: #b8860b;
+  font-size: 10px;
+  letter-spacing: 1px;
+  display: block;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(-16px) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-out {
+  to {
+    transform: translateY(-10px) scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* ---------------- リザルト画面 ---------------- */
+
+#result-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(6, 8, 12, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* #stage-wrap の line-height:0（canvas下の隙間対策）を子孫で打ち消す */
+  line-height: normal;
+}
+
+.result-box {
+  background: #f8f8f0;
+  color: #22222c;
+  border: 4px solid #22222c;
+  box-shadow: 0 0 0 4px #ffe066;
+  padding: 20px 26px;
+  width: 82%;
+  max-width: 340px;
+  text-align: center;
+}
+
+.result-rank-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #8a7f5a;
+}
+
+.result-rank {
+  font-size: 56px;
+  font-weight: bold;
+  line-height: 1;
+  color: #d32f2f;
+  text-shadow: 3px 3px 0 #ffe066;
+  margin: 2px 0 8px;
+}
+
+.result-box h2 {
+  font-size: 13px;
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+
+.result-stats {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  text-align: left;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.result-stats li {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #cfc9b0;
+  padding-bottom: 3px;
+}
+
+#btn-replay {
+  width: 100%;
+  background: #d32f2f;
+  color: #fff;
+  border-color: #7a1414;
 }
 
 /* ---------------- ポケモン風 会話ウィンドウ ---------------- */

@@ -105,6 +105,11 @@ export class Simulation {
     this.pushLog(`開場しました（観客 ${agentCount} 人が来場予定）`);
   }
 
+  /** フェス自体が終了（全員退場）したか。一時停止( running=false )とは別で判定する */
+  get dayEnded(): boolean {
+    return this.closedLogged;
+  }
+
   /** 会場内にいる観客数 */
   get insideCount(): number {
     let n = 0;

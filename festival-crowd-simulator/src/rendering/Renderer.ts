@@ -3,7 +3,7 @@
  * レイヤー構成（下から）:
  *   1. タイルマップ（静的、起動時に1回だけテクスチャ化）
  *   2. ヒートマップ
- *   3. 観客スプライト（3x3ピクセルの点）
+ *   3. 観客スプライト（8x12pxの頭でっかちチビキャラ）
  *   4. 夜の暗転オーバーレイ + ステージ照明
  *   5. 施設ラベル・LIVE インジケーター
  */
@@ -32,8 +32,8 @@ const STATE_COLORS: Record<AgentState, number> = {
   leaving: 0x9aa4ae, // 灰: 退場中
 };
 
-/** キャラクタースプライト（6x10px）のワールド上の倍率 */
-const CHAR_SCALE = 4;
+/** キャラクタースプライト（8x12px の頭でっかちチビキャラ）のワールド上の倍率 */
+const CHAR_SCALE = 3;
 
 const STATE_ORDER: AgentState[] = [
   'watching',

@@ -9,7 +9,9 @@
   <body>
     <div id="app">
       <div id="stage-wrap">
+        <div id="achievement-toasts"></div>
         <div id="player-hud" style="display: none">
+          <div class="phud-score" id="phud-score">SCORE 0</div>
           <div class="phud-row">
             <span class="phud-label">満腹</span>
             <span class="meter mini"><span id="phud-hunger" class="meter-fill hunger-bar"></span></span>
@@ -32,6 +34,22 @@
           <div id="dialogue-text"></div>
           <div class="dialogue-next">▼</div>
         </div>
+        <div id="result-screen" style="display: none">
+          <div class="result-box">
+            <div class="result-rank-label">RANK</div>
+            <div class="result-rank" id="result-rank">-</div>
+            <h2 id="result-title">本日のフェス、お疲れさまでした！</h2>
+            <ul class="result-stats">
+              <li><span>会場最終満足度</span><b id="result-satisfaction">-</b></li>
+              <li><span>あなたの SCORE</span><b id="result-score">-</b></li>
+              <li><span>🎤 観たライブ</span><b id="result-watched">-</b></li>
+              <li><span>🍜 食べた回数</span><b id="result-meals">-</b></li>
+              <li><span>🛍 買ったグッズ</span><b id="result-goods">-</b></li>
+              <li><span>🏆 解除した実績</span><b id="result-achievements">-</b></li>
+            </ul>
+            <button id="btn-replay">🔁 もう一度プレイ</button>
+          </div>
+        </div>
       </div>
       <aside id="panel">
         <h1>FES CROWD SIM</h1>
@@ -49,7 +67,10 @@
           </div>
         </div>
 
-        <button id="btn-mode">🎮 歩くモード</button>
+        <div class="controls">
+          <button id="btn-mode" class="btn-play">🎮 歩くモード</button>
+          <button id="btn-mute" title="効果音のオン/オフ">🔊</button>
+        </div>
         <p id="mode-hint" class="hint" style="display: none">
           WASD / 矢印キーで移動、<b>Shift</b> でダッシュ、Q / E でズーム調整。<br />
           💬が出ている相手に <b>Space / Z</b> で話しかけられます。<br />
@@ -100,6 +121,7 @@
             <span title="トイレ回数">🚻 <span id="my-toilet">0</span></span>
             <span title="購入したグッズ">🛍 <span id="my-goods">0</span></span>
             <span title="最前で観たライブ">🎤 <span id="my-watched">0</span></span>
+            <span title="解除した実績">🏆 <span id="my-achievements">0</span>/8</span>
           </div>
           <ul id="my-fes-list"></ul>
         </section>

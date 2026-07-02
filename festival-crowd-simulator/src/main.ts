@@ -10,6 +10,8 @@ import { Renderer } from './rendering/Renderer';
 import { HeatmapRenderer } from './rendering/HeatmapRenderer';
 import { Player } from './game/Player';
 import { agentDialogue, facilityDialogue } from './game/Dialogue';
+import { ACHIEVEMENTS, computeScore } from './game/Achievements';
+import { SoundFx } from './game/Sound';
 import { facilities, WORLD_WIDTH, WORLD_HEIGHT } from './data/venues';
 import type { Facility } from './data/venues';
 import type { Agent } from './simulation/Agent';
@@ -52,6 +54,8 @@ async function boot(): Promise<void> {
   const renderer = new Renderer(app, sim, heatmap);
   // プレイヤーは海浜幕張駅前からスタート
   const player = new Player(1072, 4176); // 海浜幕張駅前
+  const sfx = new SoundFx();
+  const unlockedAchievements = new Set<string>();
 
   // ---------------- 歩くモード（ポケモン風）とキー入力 ----------------
   let walkMode = false;
@@ -173,6 +177,7 @@ async function boot(): Promise<void> {
   /** 決定キー: セリフ送り（表示中→全文表示→閉じる／相手がいれば話しかける） */
   function handleTalkKey(): void {
     if (dialogueOpen) {
+      sfx.blip();
       if (typing) {
         window.clearInterval(typeTimer);
         dialogueText.textContent = fullText;
@@ -184,11 +189,40 @@ async function boot(): Promise<void> {
     }
     if (!talkTarget || clock < talkLockUntil) return;
     talkLockUntil = clock + 0.6; // キーリピートでの連続行動を防ぐ
-    const line =
-      talkTarget.kind === 'agent'
-        ? agentDialogue(talkTarget.agent, sim)
-        : facilityDialogue(talkTarget.facility, sim, player);
-    showDialogue(line.name, line.text);
+    if (talkTarget.kind === 'agent') {
+      sfx.blip();
+      const line = agentDialogue(talkTarget.agent, sim);
+      showDialogue(line.name, line.text);
+    } else {
+      const before =
+        player.mealsEaten + player.toiletVisits + player.goodsBought;
+      const line = facilityDialogue(talkTarget.facility, sim, player);
+      const after =
+        player.mealsEaten + player.toiletVisits + player.goodsBought;
+      sfx[after > before ? 'action' : 'blip']();
+      showDialogue(line.name, line.text);
+    }
+  }
+
+  // ---------------- 実績トースト ----------------
+  const toastArea = document.getElementById('achievement-toasts')!;
+  function showAchievementToast(icon: string, title: string, desc: string): void {
+    const el = document.createElement('div');
+    el.className = 'achievement-toast';
+    el.innerHTML = `<span class="ac-icon">${icon}</span><span><span class="ac-title">実績解除</span>${escapeHtml(title)} — ${escapeHtml(desc)}</span>`;
+    toastArea.appendChild(el);
+    window.setTimeout(() => el.remove(), 3600);
+  }
+
+  function checkAchievements(): void {
+    for (const a of ACHIEVEMENTS) {
+      if (unlockedAchievements.has(a.id)) continue;
+      if (a.condition(player)) {
+        unlockedAchievements.add(a.id);
+        showAchievementToast(a.icon, a.title, a.desc);
+        sfx.achievement();
+      }
+    }
   }
 
   // ---------------- UI 要素 ----------------
@@ -221,9 +255,16 @@ async function boot(): Promise<void> {
   const myToilet = $('my-toilet');
   const myGoods = $('my-goods');
   const myWatched = $('my-watched');
+  const myAchievements = $('my-achievements');
+  const phudScore = $('phud-score');
+  const btnMute = $('btn-mute') as HTMLButtonElement;
+  const resultScreen = $('result-screen');
+  const btnReplay = $('btn-replay') as HTMLButtonElement;
+  let resultShown = false;
 
   btnMode.addEventListener('click', () => {
     walkMode = !walkMode;
+    sfx.toggleMode();
     btnMode.textContent = walkMode ? '🗺 俯瞰モード' : '🎮 歩くモード';
     btnMode.classList.toggle('active', walkMode);
     modeHint.style.display = walkMode ? 'block' : 'none';
@@ -235,6 +276,52 @@ async function boot(): Promise<void> {
     }
     btnMode.blur(); // ボタンにフォーカスが残ってスペース等が誤爆しないように
   });
+
+  btnMute.addEventListener('click', () => {
+    sfx.muted = !sfx.muted;
+    btnMute.textContent = sfx.muted ? '🔇' : '🔊';
+    btnMute.classList.toggle('active', sfx.muted);
+    if (!sfx.muted) sfx.blip();
+    btnMute.blur();
+  });
+
+  btnReplay.addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  /** 会場満足度とプレイヤーの体験を合わせてランクを算出する */
+  function computeRank(): { rank: string; combined: number; score: number } {
+    const score = computeScore(player);
+    const played =
+      player.mealsEaten + player.toiletVisits + player.goodsBought + player.attendedActs.size > 0;
+    const playerScore = clampNum(
+      player.hype * 0.5 + player.attendedActs.size * 8 + player.mealsEaten * 3 + player.goodsBought * 4,
+      0,
+      100,
+    );
+    const combined = played
+      ? sim.metrics.satisfaction * 0.4 + playerScore * 0.6
+      : sim.metrics.satisfaction;
+    let rank = 'D';
+    if (combined >= 88) rank = 'S';
+    else if (combined >= 75) rank = 'A';
+    else if (combined >= 60) rank = 'B';
+    else if (combined >= 40) rank = 'C';
+    return { rank, combined, score };
+  }
+
+  function showResultScreen(): void {
+    const { rank, score } = computeRank();
+    ($('result-rank') as HTMLElement).textContent = rank;
+    ($('result-satisfaction') as HTMLElement).textContent = `${Math.round(sim.metrics.satisfaction)}`;
+    ($('result-score') as HTMLElement).textContent = `${score}`;
+    ($('result-watched') as HTMLElement).textContent = `${player.attendedActs.size}`;
+    ($('result-meals') as HTMLElement).textContent = `${player.mealsEaten}`;
+    ($('result-goods') as HTMLElement).textContent = `${player.goodsBought}`;
+    ($('result-achievements') as HTMLElement).textContent = `${unlockedAchievements.size} / ${ACHIEVEMENTS.length}`;
+    resultScreen.style.display = 'flex';
+    sfx.achievement();
+  }
 
   btnPlay.addEventListener('click', () => {
     sim.running = !sim.running;
@@ -303,6 +390,8 @@ async function boot(): Promise<void> {
     myToilet.textContent = `${player.toiletVisits}`;
     myGoods.textContent = `${player.goodsBought}`;
     myWatched.textContent = `${player.attendedActs.size}`;
+    myAchievements.textContent = `${unlockedAchievements.size}`;
+    phudScore.textContent = `SCORE ${computeScore(player)}`;
   }
 
   // ---------------- カメラ ----------------
@@ -382,6 +471,12 @@ async function boot(): Promise<void> {
     heatmap.update(dt);
     renderer.update(dt, player, bubblePos);
     updatePanel(dt);
+    checkAchievements();
+
+    if (sim.dayEnded && !resultShown) {
+      resultShown = true;
+      showResultScreen();
+    }
   });
 }
 

@@ -46,6 +46,71 @@ body {
   background: #000;
 }
 
+/* ライブの客席エリアに立っている間、会場が光でパルスする演出 */
+#stage-wrap.live-watching {
+  animation: live-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(255, 214, 64, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 32px 8px rgba(255, 214, 64, 0.32);
+  }
+}
+
+/* ---------------- プレイヤーHUD（歩くモード） ---------------- */
+
+#player-hud {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 9;
+  background: rgba(16, 19, 26, 0.85);
+  border: 2px solid #000;
+  outline: 1px solid var(--panel-border);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 120px;
+}
+
+.phud-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phud-label {
+  flex: 0 0 30px;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+
+.meter.mini {
+  height: 7px;
+  flex: 1;
+}
+
+.meter-fill.hunger-bar {
+  background: #ffb74d;
+}
+
+.meter-fill.toilet-bar {
+  background: #9575cd;
+}
+
+.meter-fill.fatigue-bar {
+  background: #78909c;
+}
+
+.meter-fill.hype-bar {
+  background: #f06292;
+}
+
 /* ---------------- ポケモン風 会話ウィンドウ ---------------- */
 
 #dialogue {
@@ -283,6 +348,41 @@ button:active {
 .meter-value {
   flex: 0 0 28px;
   text-align: right;
+}
+
+/* ---------------- MY FES（プレイヤーの体験記録） ---------------- */
+
+.my-fes-stats {
+  display: flex;
+  justify-content: space-between;
+  background: #0d0f14;
+  border: 1px solid var(--panel-border);
+  padding: 6px 8px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+#my-fes-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+#my-fes-list li {
+  background: #0d0f14;
+  border-left: 3px solid #ffca28;
+  padding: 4px 7px;
+}
+
+#my-fes-list li.empty {
+  border-left-color: var(--panel-border);
+  color: var(--text-dim);
 }
 
 /* ---------------- NOW PLAYING ---------------- */

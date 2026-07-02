@@ -9,6 +9,24 @@
   <body>
     <div id="app">
       <div id="stage-wrap">
+        <div id="player-hud" style="display: none">
+          <div class="phud-row">
+            <span class="phud-label">満腹</span>
+            <span class="meter mini"><span id="phud-hunger" class="meter-fill hunger-bar"></span></span>
+          </div>
+          <div class="phud-row">
+            <span class="phud-label">尿意</span>
+            <span class="meter mini"><span id="phud-toilet" class="meter-fill toilet-bar"></span></span>
+          </div>
+          <div class="phud-row">
+            <span class="phud-label">疲労</span>
+            <span class="meter mini"><span id="phud-fatigue" class="meter-fill fatigue-bar"></span></span>
+          </div>
+          <div class="phud-row">
+            <span class="phud-label">HYPE</span>
+            <span class="meter mini"><span id="phud-hype" class="meter-fill hype-bar"></span></span>
+          </div>
+        </div>
         <div id="dialogue" style="display: none">
           <div id="dialogue-name"></div>
           <div id="dialogue-text"></div>
@@ -73,6 +91,17 @@
         <section id="now-playing">
           <h2>NOW PLAYING</h2>
           <ul id="now-playing-list"></ul>
+        </section>
+
+        <section id="my-fes" style="display: none">
+          <h2>MY FES（あなたの体験）</h2>
+          <div class="my-fes-stats">
+            <span title="食べた回数">🍜 <span id="my-meals">0</span></span>
+            <span title="トイレ回数">🚻 <span id="my-toilet">0</span></span>
+            <span title="購入したグッズ">🛍 <span id="my-goods">0</span></span>
+            <span title="最前で観たライブ">🎤 <span id="my-watched">0</span></span>
+          </div>
+          <ul id="my-fes-list"></ul>
         </section>
 
         <section id="log">

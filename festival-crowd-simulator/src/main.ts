@@ -13,6 +13,7 @@ import { agentDialogue, facilityDialogue } from './game/Dialogue';
 import { facilities, WORLD_WIDTH, WORLD_HEIGHT } from './data/venues';
 import type { Facility } from './data/venues';
 import type { Agent } from './simulation/Agent';
+import type { Act } from './data/timetable';
 import './style.css';
 
 type TalkTarget =
@@ -113,6 +114,21 @@ async function boot(): Promise<void> {
     return bestFacility ? { kind: 'facility', facility: bestFacility } : null;
   }
 
+  /** ライブ鑑賞判定: 客席エリア付近にいて、かつ演奏中のステージを返す */
+  const WATCH_RADIUS = 260;
+  function findWatchingAct(): { stage: Facility; act: Act } | null {
+    if (!walkMode) return null;
+    for (const f of facilities) {
+      if (f.type !== 'stage') continue;
+      const ax = f.audienceX ?? f.x;
+      const ay = f.audienceY ?? f.y;
+      if (Math.hypot(player.x - ax, player.y - ay) > WATCH_RADIUS) continue;
+      const act = sim.timetable.currentActOnStage(f.id, sim.time);
+      if (act) return { stage: f, act };
+    }
+    return null;
+  }
+
   // ---------------- 会話ウィンドウ（ポケモン風） ----------------
   const dialogueEl = document.getElementById('dialogue')!;
   const dialogueName = document.getElementById('dialogue-name')!;
@@ -121,6 +137,12 @@ async function boot(): Promise<void> {
   let typing = false;
   let fullText = '';
   let typeTimer: number | undefined;
+  /** 実時間の経過秒（話しかけ連打防止のクールダウン用） */
+  let clock = 0;
+  let talkLockUntil = 0;
+  const myFesList = document.getElementById('my-fes-list')!;
+  const attendedLog: string[] = [];
+  myFesList.innerHTML = '<li class="empty">まだライブに参加していません</li>';
 
   function showDialogue(name: string, text: string): void {
     dialogueOpen = true;
@@ -160,11 +182,12 @@ async function boot(): Promise<void> {
       }
       return;
     }
-    if (!talkTarget) return;
+    if (!talkTarget || clock < talkLockUntil) return;
+    talkLockUntil = clock + 0.6; // キーリピートでの連続行動を防ぐ
     const line =
       talkTarget.kind === 'agent'
         ? agentDialogue(talkTarget.agent, sim)
-        : facilityDialogue(talkTarget.facility, sim);
+        : facilityDialogue(talkTarget.facility, sim, player);
     showDialogue(line.name, line.text);
   }
 
@@ -187,13 +210,29 @@ async function boot(): Promise<void> {
   const logList = $('log-list');
   const btnMode = $('btn-mode') as HTMLButtonElement;
   const modeHint = $('mode-hint');
+  const stageWrap = $('stage-wrap');
+  const playerHud = $('player-hud');
+  const myFesSection = $('my-fes');
+  const phudHunger = $('phud-hunger');
+  const phudToilet = $('phud-toilet');
+  const phudFatigue = $('phud-fatigue');
+  const phudHype = $('phud-hype');
+  const myMeals = $('my-meals');
+  const myToilet = $('my-toilet');
+  const myGoods = $('my-goods');
+  const myWatched = $('my-watched');
 
   btnMode.addEventListener('click', () => {
     walkMode = !walkMode;
     btnMode.textContent = walkMode ? '🗺 俯瞰モード' : '🎮 歩くモード';
     btnMode.classList.toggle('active', walkMode);
     modeHint.style.display = walkMode ? 'block' : 'none';
-    if (!walkMode) closeDialogue();
+    playerHud.style.display = walkMode ? 'flex' : 'none';
+    myFesSection.style.display = walkMode ? 'block' : 'none';
+    if (!walkMode) {
+      closeDialogue();
+      stageWrap.classList.remove('live-watching');
+    }
     btnMode.blur(); // ボタンにフォーカスが残ってスペース等が誤爆しないように
   });
 
@@ -254,6 +293,16 @@ async function boot(): Promise<void> {
         )
         .join('');
     }
+
+    // プレイヤー自身の状態（歩くモード中のみ意味を持つが、常に最新化しておく）
+    (phudHunger as HTMLElement).style.width = `${player.hunger}%`;
+    (phudToilet as HTMLElement).style.width = `${player.toilet}%`;
+    (phudFatigue as HTMLElement).style.width = `${player.fatigue}%`;
+    (phudHype as HTMLElement).style.width = `${player.hype}%`;
+    myMeals.textContent = `${player.mealsEaten}`;
+    myToilet.textContent = `${player.toiletVisits}`;
+    myGoods.textContent = `${player.goodsBought}`;
+    myWatched.textContent = `${player.attendedActs.size}`;
   }
 
   // ---------------- カメラ ----------------
@@ -281,6 +330,7 @@ async function boot(): Promise<void> {
   // ---------------- メインループ ----------------
   app.ticker.add((ticker) => {
     const dt = ticker.deltaMS / 1000;
+    clock += dt;
     sim.update(dt);
     if (walkMode && !dialogueOpen) {
       player.update(
@@ -305,7 +355,30 @@ async function boot(): Promise<void> {
         ? { x: talkTarget.agent.x, y: talkTarget.agent.y - 36 }
         : { x: talkTarget.facility.x, y: talkTarget.facility.y - 16 }
       : null;
+
+    // ライブ鑑賞判定: 客席にいる間 hype が上がり、8秒観ると「参加」記録される
+    const watching = findWatchingAct();
+    stageWrap.classList.toggle('live-watching', watching !== null);
+    if (watching) {
+      const justAttended = player.watchTick(dt, watching.act.id, watching.act.popularity);
+      if (justAttended) {
+        attendedLog.unshift(
+          `${formatTime(sim.time)} ${watching.act.artist}（${watching.stage.name}）を最前で体験！`,
+        );
+        attendedLog.length = Math.min(attendedLog.length, 20);
+        myFesList.innerHTML = attendedLog
+          .map((line) => `<li>${escapeHtml(line)}</li>`)
+          .join('');
+      }
+    }
+
     updateCamera(dt);
+    // 人気アクトを間近で観ている間は、画面が軽くシェイクして臨場感を出す
+    if (watching) {
+      const shake = (watching.act.popularity / 100) * 2.5;
+      renderer.world.position.x += (Math.random() - 0.5) * shake;
+      renderer.world.position.y += (Math.random() - 0.5) * shake;
+    }
     heatmap.update(dt);
     renderer.update(dt, player, bubblePos);
     updatePanel(dt);

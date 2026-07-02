@@ -7,6 +7,7 @@
 import type { Agent } from '../simulation/Agent';
 import type { Facility } from '../data/venues';
 import type { Simulation } from '../simulation/Simulation';
+import type { Player } from './Player';
 import { formatTime } from '../simulation/Timetable';
 import { DAY_END } from '../data/timetable';
 
@@ -141,13 +142,25 @@ export function agentDialogue(a: Agent, sim: Simulation): DialogueLine {
   };
 }
 
-export function facilityDialogue(f: Facility, sim: Simulation): DialogueLine {
+/**
+ * 施設の看板に話しかけたときのセリフ。
+ * FOOD / トイレ / GOODS は実際にプレイヤーの状態を変化させ（player を破壊的に更新）、
+ * 結果に応じてセリフを出し分ける。
+ */
+export function facilityDialogue(
+  f: Facility,
+  sim: Simulation,
+  player: Player,
+): DialogueLine {
   if (f.type === 'stage') {
     const current = sim.timetable.currentActOnStage(f.id, sim.time);
     if (current) {
+      const attended = player.attendedActs.has(current.id);
       return {
         name: f.name,
-        text: `NOW PLAYING: ${current.artist}（〜${formatTime(current.end)}）`,
+        text: attended
+          ? `NOW PLAYING: ${current.artist}（〜${formatTime(current.end)}）。もう最前で楽しんだね！`
+          : `NOW PLAYING: ${current.artist}（〜${formatTime(current.end)}）`,
       };
     }
     const next = sim.timetable.acts
@@ -162,12 +175,41 @@ export function facilityDialogue(f: Facility, sim: Simulation): DialogueLine {
     return { name: f.name, text: '本日の公演はすべて終了しました。' };
   }
   switch (f.type) {
-    case 'food':
-      return { name: 'FOOD AREA', text: 'いらっしゃい！フェス飯どうですか〜！' };
-    case 'goods':
-      return { name: 'GOODS 売り場', text: '公式グッズ売り場です。限定Tシャツ、残りわずか！' };
-    case 'toilet':
-      return { name: '仮設トイレ', text: '譲り合ってご利用ください。混雑時は別のトイレへ！' };
+    case 'food': {
+      const result = player.eat();
+      if (result === 'ok') {
+        return {
+          name: 'FOOD AREA',
+          text: pick([
+            'ケバブにかぶりつく…最高！お腹いっぱいになった',
+            'フェス飯は別腹！焼きそば完食！',
+            '海を見ながら食べるごはん、やっぱりうまい',
+          ]),
+        };
+      }
+      return { name: 'FOOD AREA', text: 'まだお腹は空いてなさそう。' };
+    }
+    case 'goods': {
+      const result = player.buyGoods();
+      if (result === 'ok') {
+        return {
+          name: 'GOODS 売り場',
+          text: pick([
+            '限定Tシャツをゲット！テンション上がる！',
+            'タオル買っちゃった。記念に持って帰ろう',
+            'ステッカーも一緒に購入！',
+          ]),
+        };
+      }
+      return { name: 'GOODS 売り場', text: 'もう荷物がいっぱいかも…？' };
+    }
+    case 'toilet': {
+      const result = player.useToilet();
+      if (result === 'ok') {
+        return { name: '仮設トイレ', text: 'スッキリ！また会場を回ろう。' };
+      }
+      return { name: '仮設トイレ', text: '今はまだ大丈夫そう。' };
+    }
     case 'exit':
       return {
         name: '海浜幕張駅',

@@ -573,6 +573,64 @@ export class TileMap {
         g.rect(x - 3, y - 14, 6, 6).fill(0x3a4150); // ウーファー
         g.rect(x - 3, y - 4, 6, 6).fill(0x3a4150);
         break;
+      case 'bunting': {
+        // 三角旗のガーランド（紐 + 3色の三角旗）
+        const buntingColors = [0xe4739e, 0xffd166, 0x4fc3f7];
+        g.rect(x - 13, y - 1, 26, 1).fill(0x5a5a5a);
+        for (let i = 0; i < 3; i++) {
+          const px = x - 11 + i * 8;
+          const c = buntingColors[i % buntingColors.length];
+          g.poly([px, y, px + 6, y, px + 3, y + 7]).fill(c);
+        }
+        break;
+      }
+      case 'balloon': {
+        // 風船クラスター（3色、ひも付き）
+        const balloonColors = [0xe74c3c, 0xf1c40f, 0x4fc3f7];
+        const offsets: Array<[number, number]> = [
+          [-7, -18],
+          [0, -24],
+          [7, -18],
+        ];
+        offsets.forEach(([dx, dy], i) => {
+          g.circle(x + dx, y + dy, 5).fill(balloonColors[i % balloonColors.length]);
+          g.rect(x + dx, y + dy + 5, 1, -dy - 5).fill(0x333333); // ひも（風船からy地点まで）
+        });
+        break;
+      }
+      case 'barrier': {
+        // 客席前のクラウドコントロールフェンス
+        const white = 0xe8e8ec;
+        const redBand = 0xd32f2f;
+        if (d.orientation === 'v') {
+          g.rect(x - 4, y - 13, 4, 26).fill(white);
+          g.rect(x - 4, y - 13, 1, 26).fill(redBand);
+          g.rect(x - 4, y - 3, 4, 6).fill(0x555a63); // 脚
+        } else {
+          g.rect(x - 13, y - 4, 26, 4).fill(white);
+          g.rect(x - 13, y - 4, 26, 1).fill(redBand);
+          g.rect(x - 3, y - 4, 6, 6).fill(0x555a63); // 脚
+        }
+        break;
+      }
+      case 'trash':
+        g.rect(x - 5, y - 10, 10, 10).fill(0x2f6b3a);
+        g.rect(x - 6, y - 11, 12, 2).fill(0x1f4a28); // 蓋
+        g.rect(x - 3, y - 8, 1, 6).fill(0x1f4a28);
+        g.rect(x + 2, y - 8, 1, 6).fill(0x1f4a28);
+        break;
+      case 'planter':
+        g.rect(x - 7, y - 4, 14, 6).fill(0x5d4526); // 木箱
+        g.rect(x - 7, y - 10, 14, 7).fill(0x3f8a45); // 葉
+        g.rect(x - 3, y - 10, 2, 2).fill(0xe4739e); // 花
+        g.rect(x + 2, y - 9, 2, 2).fill(0xffd166);
+        break;
+      case 'umbrella':
+        g.rect(x - 1, y - 2, 2, 16).fill(0x8a5a30); // 軸
+        g.poly([x - 13, y - 2, x + 13, y - 2, x, y - 17]).fill(0xe4739e);
+        g.poly([x - 13, y - 2, x - 4, y - 2, x - 8.5, y - 13]).fill(0xffffff);
+        g.poly([x + 4, y - 2, x + 13, y - 2, x + 8.5, y - 13]).fill(0xffffff);
+        break;
     }
   }
 }
